@@ -384,6 +384,7 @@ body::before{content:'';position:fixed;inset:0;background:
     <span class="game-info-pill" id="top-ap">Action Points: <span id="ap-display">●●●</span></span>
     <span class="game-info-pill" id="top-deck">Deck: <span id="deck-count">—</span></span>
     <div style="margin-left:auto;display:flex;gap:.4rem">
+      <button class="btn btn-dark" id="discard-btn" style="padding:.2rem .5rem;font-size:.62rem">🗂 Discard</button>
       <button class="btn btn-dark" id="rules-btn" style="padding:.2rem .5rem;font-size:.62rem">Rules</button>
       <button class="btn btn-dark" id="menu-btn" style="padding:.2rem .5rem;font-size:.62rem">Menu</button>
     </div>
@@ -506,9 +507,9 @@ body::before{content:'';position:fixed;inset:0;background:
 </div>
 
 <!-- Discard Pile Viewer -->
-<div id="discard-modal" class="modal-overlay hidden">
+<div id="discard-modal" class="modal-overlay hidden" style="z-index:600">
   <div class="modal">
-    <h2>Discard Pile</h2>
+    <h2>Discard Pile <span id="discard-modal-count" style="font-size:.7rem;color:var(--dim);font-family:'Cinzel',serif;font-weight:400"></span></h2>
     <div id="discard-modal-cards" class="modal-cards"></div>
     <div class="modal-btns">
       <button class="btn btn-dark" id="discard-close-btn">Close</button>
@@ -603,7 +604,7 @@ body::before{content:'';position:fixed;inset:0;background:
      ════════════════════════════════════════ -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getDatabase, ref, set, get, onValue, off, update, push, remove, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import { getDatabase, ref, set, get, onValue, off, update, push, remove, serverTimestamp, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
 // ── FIREBASE CONFIG ──
 const app = initializeApp({
@@ -758,20 +759,44 @@ document.getElementById('do-challenge-btn').addEventListener('click', async () =
   const challengeCard = myHand.find(c => c.type === 'Challenge');
   if (!challengeCard) { showNotif('No Challenge card in hand!'); return; }
 
+  // Hide banner immediately to prevent double-clicks
+  document.getElementById('challenge-banner').classList.add('hidden');
+  clearInterval(window._challengeTimerInterval);
+
+  // Use Firebase transaction to atomically claim the challenge slot
+  const pendingRef = ref(db, `hp_rooms/${myRoom}/gameState/pendingCardPlay`);
+  const { committed } = await runTransaction(pendingRef, (current) => {
+    if (!current || current.challengerPCID) return; // abort — already claimed
+    return { ...current, challengerPCID: MY_PCID, challengerName: me.name };
+  });
+
+  if (!committed) {
+    showNotif('Someone else challenged first!');
+    return;
+  }
+
+  // Transaction succeeded — update local state and log
   const gs = deepClone(localGS);
   const gsMe = gs.players[MY_PCID];
   gsMe.hand = gsMe.hand.filter(c => c.uid !== challengeCard.uid);
   gs.discardPile = gs.discardPile || [];
   gs.discardPile.push(challengeCard);
+  gs.pendingCardPlay = gs.pendingCardPlay || {};
   gs.pendingCardPlay.challengerPCID = MY_PCID;
-  gs.pendingCardPlay.challengerName = gsMe.name;
-  addLog(gs, `⚔ ${gsMe.name} challenges!`);
+  gs.pendingCardPlay.challengerName = me.name;
+  addLog(gs, `⚔ ${me.name} challenges!`);
   await pushState(gs);
-  document.getElementById('challenge-banner').classList.add('hidden');
-  clearInterval(window._challengeTimerInterval);
 });
 
-document.getElementById('pass-challenge-btn').addEventListener('click', () => {
+document.getElementById('pass-challenge-btn').addEventListener('click', async () => {
+  if (!CONFIG.TIMED_WINDOWS) {
+    // Record my pass in Firebase
+    const pending = localGS?.pendingCardPlay;
+    if (!pending || pending.resolved || pending.challengerPCID) return;
+    const gs = deepClone(localGS);
+    gs.pendingCardPlay.passedPlayers = [...(gs.pendingCardPlay.passedPlayers || []), MY_PCID];
+    await pushState(gs);
+  }
   document.getElementById('challenge-banner').classList.add('hidden');
   clearInterval(window._challengeTimerInterval);
 });
@@ -1160,73 +1185,119 @@ function listenRoomForGame() {
 function handleChallengeBanner(gs) {
   const pending = gs.pendingCardPlay;
   const banner = document.getElementById('challenge-banner');
-  if (!pending || pending.resolved || pending.playedByPCID === MY_PCID || pending.challengerPCID) {
+  const me = gs.players[MY_PCID];
+
+  // Hide if: no pending, already resolved, I played it, someone already challenged, or (untimed) I already passed
+  const iAlreadyPassed = !CONFIG.TIMED_WINDOWS && (pending?.passedPlayers || []).includes(MY_PCID);
+  if (!pending || pending.resolved || pending.playedByPCID === MY_PCID || pending.challengerPCID || iAlreadyPassed) {
     banner.classList.add('hidden');
     clearTimeout(window._challengeTimerTimeout);
     clearInterval(window._challengeTimerInterval);
     return;
   }
-  // I am an opponent — show banner
-  const me = gs.players[MY_PCID];
+
   const myHand = me?.hand || [];
   const hasChallenge = myHand.some(c => c.type === 'Challenge');
   const card = pending.cardData;
 
-  document.getElementById('challenge-banner-card-img').src = cardImage(card);
+  // Card image — clickable to show info
+  const imgEl = document.getElementById('challenge-banner-card-img');
+  imgEl.src = cardImage(card);
+  imgEl.style.cursor = 'pointer';
+  imgEl.onclick = () => showCardInfoOverlay(card);
+
   document.getElementById('challenge-banner-sub').textContent =
     `${pending.playedByName} plays ${card.name}`;
   document.getElementById('do-challenge-btn').style.display = hasChallenge ? '' : 'none';
   banner.classList.remove('hidden');
 
-  // Countdown
-  clearInterval(window._challengeTimerInterval);
-  window._challengeTimerInterval = setInterval(() => {
-    const rem = Math.max(0, pending.expiresAt - Date.now());
-    document.getElementById('ch-timer-fill').style.width = (rem / CONFIG.CHALLENGE_WINDOW_MS * 100) + '%';
-    document.getElementById('ch-timer-label').textContent = `${Math.ceil(rem/1000)}s`;
-    if (rem <= 0) { clearInterval(window._challengeTimerInterval); banner.classList.add('hidden'); }
-  }, 100);
+  if (CONFIG.TIMED_WINDOWS) {
+    // ── Timed mode: countdown bar ──
+    const timerWrap = banner.querySelector('.timer-bar-wrap');
+    const timerLabel = document.getElementById('ch-timer-label');
+    if (timerWrap) timerWrap.style.display = '';
+    if (timerLabel) timerLabel.style.display = '';
+    clearInterval(window._challengeTimerInterval);
+    window._challengeTimerInterval = setInterval(() => {
+      const rem = Math.max(0, pending.expiresAt - Date.now());
+      document.getElementById('ch-timer-fill').style.width = (rem / CONFIG.CHALLENGE_WINDOW_MS * 100) + '%';
+      document.getElementById('ch-timer-label').textContent = `${Math.ceil(rem / 1000)}s`;
+      if (rem <= 0) { clearInterval(window._challengeTimerInterval); banner.classList.add('hidden'); }
+    }, 100);
+  } else {
+    // ── Untimed mode: show who has passed ──
+    clearInterval(window._challengeTimerInterval);
+    const timerWrap = banner.querySelector('.timer-bar-wrap');
+    const timerLabel = document.getElementById('ch-timer-label');
+    if (timerWrap) timerWrap.style.display = 'none';
+    if (timerLabel) timerLabel.style.display = 'none';
+
+    const opponents = Object.values(gs.players).filter(p => p.pcid !== pending.playedByPCID);
+    const passed = pending.passedPlayers || [];
+    const waiting = opponents.filter(p => !passed.includes(p.pcid)).map(p => p.name);
+    const passedNames = opponents.filter(p => passed.includes(p.pcid)).map(p => p.name);
+
+    let statusParts = [];
+    if (passedNames.length) statusParts.push(`✓ ${passedNames.join(', ')} passed`);
+    if (waiting.length) statusParts.push(`⏳ ${waiting.join(', ')} deciding...`);
+    const subEl = document.getElementById('challenge-banner-sub');
+    subEl.innerHTML = `${pending.playedByName} plays <strong>${card.name}</strong><br>
+      <span style="font-size:.65rem;color:var(--dim)">${statusParts.join(' · ')}</span>`;
+  }
 }
 
-// Modifier banner: shown to all players (including roller) during a roll
+// Modifier banner: shown to non-rollers during a roll
 function handleModifierBanner(gs) {
   const pr = gs.pendingRoll;
   const banner = document.getElementById('modifier-banner');
 
-  if (!pr || pr.resolved || pr.rollerId === MY_PCID) {
-    // Roller sees the dice modal, not this banner
-    // Non-rollers: hide when done
+  const iAlreadyPassed = !CONFIG.TIMED_WINDOWS && (pr?.passedPlayers || []).includes(MY_PCID);
+  if (!pr || pr.resolved || pr.rollerId === MY_PCID || iAlreadyPassed) {
     if (!pr || pr.resolved) banner.classList.add('hidden');
     return;
   }
 
-  // I am a spectator/non-roller — show modifier banner
   const me = gs.players[MY_PCID];
   const myHand = me?.hand || [];
   const modCards = myHand.filter(c => c.type === 'Modifier');
 
+  // Build title with roll info
   document.getElementById('mod-banner-title').textContent =
-    `🎲 ${pr.rollerName} rolled [${pr.die1}+${pr.die2}]=${pr.rawRoll}${pr.staticBonus?`+${pr.staticBonus}`:''}`;
+    `🎲 ${pr.rollerName} rolled [${pr.die1}+${pr.die2}]=${pr.rawRoll}${pr.staticBonus ? `+${pr.staticBonus}` : ''}`;
   let subText = `Total: ${pr.currentTotal} (need ${pr.target}+)`;
-  if ((pr.modifiers||[]).length) {
-    subText += ' | Mods: ' + pr.modifiers.map(m=>`${m.playerName} ${m.delta>=0?'+':''}${m.delta}`).join(', ');
+  if ((pr.modifiers || []).length) {
+    subText += ' | Mods: ' + pr.modifiers.map(m => `${m.playerName} ${m.delta >= 0 ? '+' : ''}${m.delta}`).join(', ');
   }
   document.getElementById('mod-banner-sub').textContent = subText;
 
-  // Show my modifier cards
+  // Build cards area: context card info button + modifier cards + pass button
   const cardsEl = document.getElementById('mod-banner-cards');
   cardsEl.innerHTML = '';
+
+  // Context card info button (hero being rolled for or monster being attacked)
+  if (pr.contextCard) {
+    const infoBtn = document.createElement('div');
+    infoBtn.style.cssText = `display:flex;flex-direction:column;align-items:center;cursor:pointer;opacity:.85`;
+    infoBtn.innerHTML = `<img src="${cardImage(pr.contextCard)}" style="width:38px;height:53px;border-radius:3px;border:1px solid var(--gold);object-fit:cover">
+      <span style="font-size:.5rem;color:var(--text2);margin-top:2px">Info</span>`;
+    infoBtn.onclick = () => showCardInfoOverlay(pr.contextCard);
+    cardsEl.appendChild(infoBtn);
+    // Separator
+    const sep = document.createElement('div');
+    sep.style.cssText = 'width:1px;background:var(--border);margin:0 4px;align-self:stretch';
+    cardsEl.appendChild(sep);
+  }
+
+  // Modifier cards
   modCards.forEach(card => {
-    const c = makeCardEl(card, {sm: true, onClick: async () => {
+    const c = makeCardEl(card, { sm: true, onClick: async () => {
       let delta = card.bonus;
       if (card.penalty !== undefined && card.penalty !== card.bonus) {
         delta = await askModifierPolarity(card);
       }
-      // Apply modifier as non-roller
       const freshGS = deepClone(localGS);
       const freshMe = freshGS.players[MY_PCID];
-      freshMe.hand = freshMe.hand || [];
-      freshMe.hand = freshMe.hand.filter(c2 => c2.uid !== card.uid);
+      freshMe.hand = (freshMe.hand || []).filter(c2 => c2.uid !== card.uid);
       freshGS.discardPile = freshGS.discardPile || [];
       freshGS.discardPile.push(card);
       const proll = freshGS.pendingRoll;
@@ -1235,22 +1306,59 @@ function handleModifierBanner(gs) {
       proll.modifiers = proll.modifiers || [];
       proll.modifiers.push({ pcid: MY_PCID, playerName: freshMe.name, cardName: card.name, delta, newTotal });
       proll.currentTotal = newTotal;
+      // Reset passes when a modifier is played
+      if (!CONFIG.TIMED_WINDOWS) proll.passedPlayers = [];
       proll.expiresAt = Date.now() + CONFIG.MODIFIER_RESET_MS;
-      addLog(freshGS, `🃏 ${freshMe.name} plays ${card.name}: ${delta>=0?'+':''}${delta} → total now ${newTotal}`);
+      addLog(freshGS, `🃏 ${freshMe.name} plays ${card.name}: ${delta >= 0 ? '+' : ''}${delta} → total now ${newTotal}`);
       await pushState(freshGS);
     }});
     cardsEl.appendChild(c);
   });
 
+  // Pass button (untimed mode only — or always show as secondary option)
+  if (!CONFIG.TIMED_WINDOWS) {
+    const passBtn = document.createElement('button');
+    passBtn.className = 'btn btn-dark';
+    passBtn.style.cssText = 'font-size:.65rem;padding:.3rem .6rem;align-self:center;white-space:nowrap';
+    passBtn.textContent = 'Pass';
+    passBtn.onclick = async () => {
+      const freshGS = deepClone(localGS);
+      const proll = freshGS.pendingRoll;
+      if (!proll) return;
+      proll.passedPlayers = [...(proll.passedPlayers || []), MY_PCID];
+      await pushState(freshGS);
+      banner.classList.add('hidden');
+    };
+    cardsEl.appendChild(passBtn);
+
+    // Show pass status
+    const allPlayers = Object.values(gs.players);
+    const passed = pr.passedPlayers || [];
+    const waitingNames = allPlayers.filter(p => !passed.includes(p.pcid) && p.pcid !== pr.rollerId).map(p => p.name);
+    if (waitingNames.length) {
+      const statusEl = document.createElement('div');
+      statusEl.style.cssText = 'font-size:.55rem;color:var(--dim);align-self:center;white-space:nowrap;margin-left:4px';
+      statusEl.textContent = `⏳ ${waitingNames.join(', ')}`;
+      cardsEl.appendChild(statusEl);
+    }
+  }
+
   banner.classList.remove('hidden');
 
-  // Countdown (just visual, roller resolves)
+  // Timer bar: only in timed mode
   clearInterval(window._modBannerInterval);
-  window._modBannerInterval = setInterval(() => {
-    const rem = Math.max(0, pr.expiresAt - Date.now());
-    document.getElementById('mb-timer-fill').style.width = (rem / CONFIG.MODIFIER_WINDOW_MS * 100) + '%';
-    if (rem <= 0) { clearInterval(window._modBannerInterval); banner.classList.add('hidden'); }
-  }, 100);
+  if (CONFIG.TIMED_WINDOWS) {
+    document.getElementById('mb-timer-fill').style.width = '100%';
+    banner.querySelector('.timer-bar-wrap').style.display = '';
+    window._modBannerInterval = setInterval(() => {
+      const rem = Math.max(0, pr.expiresAt - Date.now());
+      document.getElementById('mb-timer-fill').style.width = (rem / CONFIG.MODIFIER_WINDOW_MS * 100) + '%';
+      if (rem <= 0) { clearInterval(window._modBannerInterval); banner.classList.add('hidden'); }
+    }, 100);
+  } else {
+    const tw = banner.querySelector('.timer-bar-wrap');
+    if (tw) tw.style.display = 'none';
+  }
 }
 
 function renderGame() {
@@ -1533,12 +1641,52 @@ async function playCard(gs, card) {
         expiresAt: Date.now() + CONFIG.CHALLENGE_WINDOW_MS,
         challengerPCID: null,
         challengerName: null,
+        passedPlayers: [],
         resolved: false
       };
-      addLog(gs, `${me.name} plays ${card.name} — 8s challenge window open!`);
+      addLog(gs, `${me.name} plays ${card.name} — ${CONFIG.CHALLENGE_WINDOW_MS/1000}s challenge window open!`);
       await pushState(gs);
 
+      // Show status to the card player while opponents are deciding
+      const timerPill = document.createElement('div');
+      timerPill.id = 'challenge-wait-pill';
+      timerPill.style.cssText = `position:fixed;bottom:80px;left:50%;transform:translateX(-50%);
+        background:rgba(100,10,10,.92);border:1px solid var(--red2);border-radius:20px;
+        padding:.4rem 1rem;z-index:200;font-family:Cinzel,serif;font-size:.72rem;
+        color:#ff9090;letter-spacing:.05em;pointer-events:none;
+        box-shadow:0 2px 12px rgba(150,20,20,.5)`;
+      document.body.appendChild(timerPill);
+
+      let pillInterval;
+      if (CONFIG.TIMED_WINDOWS) {
+        const pillExpiry = Date.now() + CONFIG.CHALLENGE_WINDOW_MS;
+        timerPill.textContent = `⚔ Challenge window: ${CONFIG.CHALLENGE_WINDOW_MS / 1000}s`;
+        pillInterval = setInterval(() => {
+          const rem = Math.max(0, pillExpiry - Date.now());
+          timerPill.textContent = `⚔ Challenge window: ${Math.ceil(rem / 1000)}s`;
+          if (rem <= 0) { clearInterval(pillInterval); timerPill.remove(); }
+        }, 200);
+      } else {
+        // Untimed: show live pass status
+        const updatePill = () => {
+          const pending = localGS?.pendingCardPlay;
+          if (!pending) { timerPill.remove(); return; }
+          const allOpponents = Object.values(localGS.players).filter(p => p.pcid !== MY_PCID);
+          const passed = pending.passedPlayers || [];
+          const waiting = allOpponents.filter(p => !passed.includes(p.pcid)).map(p => p.name);
+          if (waiting.length === 0) {
+            timerPill.textContent = '⚔ All players decided';
+          } else {
+            timerPill.textContent = `⚔ Waiting: ${waiting.join(', ')}`;
+          }
+        };
+        updatePill();
+        pillInterval = setInterval(updatePill, 300);
+      }
+
       const challengeResult = await waitForChallengeWindow();
+      clearInterval(pillInterval);
+      if (timerPill.parentNode) timerPill.remove();
       if (challengeResult.challenged) {
         // Run challenge rolls
         const freshGS = deepClone(localGS);
@@ -1676,9 +1824,7 @@ async function offerFreeHeroRoll(card) {
       resolve();
     });
     el.querySelector('#free-roll-no').addEventListener('click', () => { cleanup(); resolve(); });
-
-    // Auto-expire after 15 seconds
-    setTimeout(() => { cleanup(); resolve(); }, 15000);
+    // No auto-expire — player decides when they're ready
   });
 }
 
@@ -1709,9 +1855,10 @@ async function rollForHero(gs, hero, skipDeduct=false) {
   // Write pendingRoll to Firebase so others can see dice + play modifiers
   gs.pendingRoll = {
     rollerId: MY_PCID, rollerName: me.name,
-    context: 'hero', contextName: hero.name,
+    context: 'hero', contextName: hero.name, contextCard: hero,
     die1, die2, rawRoll, staticBonus,
     modifiers: [], currentTotal,
+    passedPlayers: [],
     target: hero.roll, expiresAt: Date.now() + CONFIG.MODIFIER_WINDOW_MS, resolved: false
   };
   addLog(gs, `${me.name} rolls for ${hero.name}: [${die1}+${die2}]${staticBonus?`${staticBonus>=0?'+':''}${staticBonus}`:''}=${currentTotal} (need ${hero.roll}+)`);
@@ -1766,9 +1913,10 @@ async function attackMonster(gs, monster) {
 
   gs.pendingRoll = {
     rollerId: MY_PCID, rollerName: me.name,
-    context: 'attack', contextName: monster.name,
+    context: 'attack', contextName: monster.name, contextCard: monster,
     die1, die2, rawRoll, staticBonus,
     modifiers: [], currentTotal,
+    passedPlayers: [],
     target: monster.winRoll, expiresAt: Date.now() + CONFIG.MODIFIER_WINDOW_MS, resolved: false
   };
   addLog(gs, `${me.name} attacks ${monster.name}: [${die1}+${die2}]${staticBonus?`+${staticBonus}`:''}=${currentTotal}`);
@@ -2523,6 +2671,36 @@ async function offerImmediateMagic(gs, card) {
 }
 
 // Confirm prompt (yes/no)
+// Show a full-size card detail overlay (used in challenge and modifier banners)
+function showCardInfoOverlay(card) {
+  if (!card) return;
+  const el = document.createElement('div');
+  el.style.cssText = `position:fixed;inset:0;z-index:500;display:flex;align-items:center;
+    justify-content:center;background:rgba(0,0,0,.75)`;
+  const isMonster = card.type === 'Monster';
+  const rollInfo = card.roll ? `<div style="color:var(--gold2);font-size:.72rem;margin:.3rem 0">Roll needed: <strong>${card.roll}+</strong></div>` : '';
+  const monsterInfo = isMonster ? `
+    <div style="font-size:.65rem;color:var(--text2);margin:.3rem 0">
+      Win (${card.winRoll}+): ${card.winEffect}<br>
+      Lose (≤${card.loseRoll}): ${card.loseEffect}
+    </div>
+    <div style="font-size:.65rem;color:var(--dim);margin:.2rem 0;font-style:italic">Passive: ${card.passiveEffect}</div>` : '';
+  el.innerHTML = `<div style="background:var(--panel);border:1px solid var(--gold);border-radius:10px;
+      padding:1rem;max-width:260px;width:90%;text-align:center;font-family:Cinzel,serif;
+      box-shadow:0 8px 30px rgba(0,0,0,.9)">
+    <img src="${cardImage(card)}" style="width:120px;height:168px;border-radius:6px;object-fit:cover;border:1px solid var(--border);margin-bottom:.6rem">
+    <div style="color:var(--gold2);font-size:.85rem;font-weight:700;margin-bottom:.2rem">${card.name}</div>
+    <div style="color:var(--dim);font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;margin-bottom:.4rem">${card.type}</div>
+    ${rollInfo}
+    <div style="color:var(--text);font-size:.7rem;line-height:1.4;margin:.3rem 0">${card.effect || ''}</div>
+    ${monsterInfo}
+    <button class="btn btn-dark" style="margin-top:.7rem;font-size:.7rem;padding:.3rem .8rem">Close</button>
+  </div>`;
+  el.querySelector('button').onclick = () => el.remove();
+  el.onclick = (e) => { if (e.target === el) el.remove(); };
+  document.body.appendChild(el);
+}
+
 function confirmPrompt(msg) {
   return new Promise(resolve => {
     const el = document.createElement('div');
@@ -2560,27 +2738,120 @@ function makePickerEl(title, options, resolve) {
 
 async function applyMagicEffect(gs, card) {
   const me = gs.players[MY_PCID];
-  const effect = card.effect;
+  me.hand = me.hand || []; me.party = me.party || [];
+  me.equippedItems = me.equippedItems || {}; me.slayedMonsters = me.slayedMonsters || [];
+  me.statusEffects = me.statusEffects || {};
+  gs.discardPile = gs.discardPile || [];
 
-  if (effect.includes('DRAW 3')) drawCards(gs, MY_PCID, 3);
-  if (effect.includes('DRAW a card')) drawCards(gs, MY_PCID, 1);
-  if (effect.includes('+2 to all')) { me.statusEffects=me.statusEffects||{}; me.statusEffects.enchanted=true; }
+  addLog(gs, `✨ ${card.name}: ${card.effect}`);
 
-  if (card.name === 'Critical Boost') {
+  if (card.name === 'Call to the Fallen') {
+    // Search discard pile for a Hero card
+    const heroCards = (gs.discardPile || []).filter(c => c.type?.startsWith('Hero'));
+    if (!heroCards.length) { showNotif('No Hero cards in discard pile.'); }
+    else {
+      await new Promise(resolve => {
+        openModal('Retrieve a Hero from discard', '', heroCards, (chosen) => {
+          if (chosen) {
+            gs.discardPile = gs.discardPile.filter(c => c.uid !== chosen.uid);
+            me.hand.push(chosen);
+            addLog(gs, `${me.name} retrieves ${chosen.name} from discard.`);
+          }
+          resolve();
+        }, false);
+      });
+    }
+  }
+  else if (card.name === 'Critical Boost') {
+    // DRAW 3, then DISCARD 1
     drawCards(gs, MY_PCID, 3);
-    if (me.hand.length) { gs.discardPile.push(me.hand.shift()); }
+    if (me.hand.length) {
+      const idx = await pickCardFromHand(gs, MY_PCID, 'DISCARD a card (Critical Boost):');
+      if (idx >= 0) gs.discardPile.push(me.hand.splice(idx, 1)[0]);
+    }
   }
-  if (card.name === 'Forceful Winds') {
+  else if (card.name === 'Destructive Spell') {
+    // DISCARD a card, then DESTROY a Hero card
+    if (me.hand.length) {
+      const idx = await pickCardFromHand(gs, MY_PCID, 'DISCARD a card (Destructive Spell):');
+      if (idx >= 0) gs.discardPile.push(me.hand.splice(idx, 1)[0]);
+    }
+    await destroyAHero(gs, me);
+  }
+  else if (card.name === 'Enchanted Spell') {
+    me.statusEffects.enchanted = true;
+    addLog(gs, `${me.name} gains +2 to all rolls until end of turn.`);
+  }
+  else if (card.name === 'Entangling Trap') {
+    // DISCARD 2 cards, then STEAL a Hero card
+    for (let i = 0; i < 2 && me.hand.length; i++) {
+      const idx = await pickCardFromHand(gs, MY_PCID, `DISCARD a card (${i+1}/2):`);
+      if (idx >= 0) gs.discardPile.push(me.hand.splice(idx, 1)[0]);
+    }
+    await stealAHero(gs, me);
+  }
+  else if (card.name === 'Forced Exchange') {
+    // STEAL a Hero from a player, then give them one of yours
+    await stealAHero(gs, me);
+    if (me.party.length) {
+      await new Promise(resolve => {
+        openModal('Give a Hero to the target player', 'Move one Hero from your Party to theirs.', me.party, (chosen) => {
+          if (chosen) {
+            // Find who we just stole from (the last logged steal target — simplified: pick any opponent)
+            const others = Object.values(gs.players).filter(p => p.pcid !== MY_PCID);
+            if (others.length) {
+              me.party = me.party.filter(h => h.uid !== chosen.uid);
+              others[0].party = others[0].party || [];
+              others[0].party.push(chosen);
+              addLog(gs, `${me.name} gives ${chosen.name} to ${others[0].name}.`);
+            }
+          }
+          resolve();
+        }, false);
+      });
+    }
+  }
+  else if (card.name === 'Forceful Winds') {
+    // Return every equipped Item to its player's hand
     Object.values(gs.players).forEach(p => {
-      if (p.equippedItems) {
-        Object.entries(p.equippedItems).forEach(([huid, item]) => {
-          p.hand = p.hand||[];
-          p.hand.push(item);
-        });
-        p.equippedItems = {};
-      }
+      if (!p.equippedItems) return;
+      Object.values(p.equippedItems).forEach(item => {
+        p.hand = p.hand || [];
+        p.hand.push(item);
+      });
+      p.equippedItems = {};
     });
+    addLog(gs, 'All equipped Items returned to their owners!');
   }
+  else if (card.name === 'Winds of Change') {
+    // Return one equipped Item from any player to that player's hand, then DRAW a card
+    const allEquipped = [];
+    Object.values(gs.players).forEach(p => {
+      Object.entries(p.equippedItems || {}).forEach(([huid, item]) => {
+        allEquipped.push({ ...item, _ownerPCID: p.pcid, _ownerName: p.name });
+      });
+    });
+    if (!allEquipped.length) { showNotif('No equipped Items on the board.'); }
+    else {
+      await new Promise(resolve => {
+        openModal('Return which equipped Item?', 'It goes back to its owner\'s hand.', allEquipped, (chosen) => {
+          if (chosen) {
+            const owner = gs.players[chosen._ownerPCID];
+            if (owner) {
+              const heroUid = Object.entries(owner.equippedItems || {}).find(([,v]) => v.uid === chosen.uid)?.[0];
+              if (heroUid) delete owner.equippedItems[heroUid];
+              owner.hand = owner.hand || [];
+              owner.hand.push({ ...chosen, _ownerPCID: undefined, _ownerName: undefined });
+              addLog(gs, `${me.name} returns ${chosen.name} to ${chosen._ownerName}.`);
+            }
+          }
+          resolve();
+        }, false);
+      });
+    }
+    drawCards(gs, MY_PCID, 1);
+  }
+
   await pushState(gs);
 }
 
@@ -2687,8 +2958,9 @@ async function endTurn() {
 }
 
 // ────────────────────────────────────────────────────────────────
-// ROLLER'S DICE WINDOW — shows dice + 8s modifier countdown
-// Returns the finalTotal (reading from localGS.pendingRoll after window)
+// ROLLER'S DICE WINDOW
+// Timed:   countdown, auto-closes
+// Untimed: "Done" button + watches for all players passing
 // ────────────────────────────────────────────────────────────────
 function showRollerDiceWindow(target, die1, die2, staticBonus, title) {
   return new Promise((resolve) => {
@@ -2697,51 +2969,92 @@ function showRollerDiceWindow(target, die1, die2, staticBonus, title) {
     let finished = false;
     let countdownInterval;
     let countdownTimeout;
+    let fbUnsub = () => {};
 
     const modal = document.getElementById('dice-modal');
 
-    // Initial render
     renderDiceModal(die1, die2, staticBonus, die1 + die2 + staticBonus, [], target, title);
     document.getElementById('dice-close-btn').style.display = 'none';
     document.getElementById('dice-play-mod-btn').style.display =
       (localGS?.players?.[MY_PCID]?.hand || []).some(c => c.type === 'Modifier') ? '' : 'none';
     modal.classList.remove('hidden');
 
-    // Countdown bar
-    const startCountdown = () => {
-      clearInterval(countdownInterval);
-      clearTimeout(countdownTimeout);
-      const remaining = expiresAt - Date.now();
-      if (remaining <= 0) { finish(); return; }
-      countdownInterval = setInterval(() => {
-        const rem = Math.max(0, expiresAt - Date.now());
-        document.getElementById('mod-timer-fill').style.width = (rem / windowMs * 100) + '%';
-        document.getElementById('mod-timer-label').textContent = `Modifier window: ${Math.ceil(rem / 1000)}s`;
-        if (rem <= 0) { clearInterval(countdownInterval); finish(); }
-      }, 100);
-      countdownTimeout = setTimeout(finish, remaining);
-    };
-    document.getElementById('mod-timer-wrap').style.display = '';
-    document.getElementById('mod-timer-label').style.display = '';
-    startCountdown();
-
-    // Firebase listener to catch modifier plays by anyone
     const pendingRollRef = ref(db, `hp_rooms/${myRoom}/gameState/pendingRoll`);
-    const fbUnsub = onValue(pendingRollRef, snap => {
-      if (finished) return;
-      const pr = snap.val();
-      if (!pr) return;
-      // If modifier was played (expiresAt changed), re-render and reset countdown
-      renderDiceModal(pr.die1, pr.die2, pr.staticBonus, pr.currentTotal, pr.modifiers || [], pr.target, title);
-      document.getElementById('dice-play-mod-btn').style.display =
-        (localGS?.players?.[MY_PCID]?.hand || []).some(c => c.type === 'Modifier') ? '' : 'none';
-      if (pr.expiresAt && pr.expiresAt !== expiresAt) {
-        expiresAt = pr.expiresAt;
-        startCountdown();
-      }
-    });
 
-    // Play Modifier button
+    if (CONFIG.TIMED_WINDOWS) {
+      // ── Timed mode: countdown ──
+      document.getElementById('mod-timer-wrap').style.display = '';
+      document.getElementById('mod-timer-label').style.display = '';
+
+      const startCountdown = () => {
+        clearInterval(countdownInterval);
+        clearTimeout(countdownTimeout);
+        const remaining = expiresAt - Date.now();
+        if (remaining <= 0) { finish(); return; }
+        countdownInterval = setInterval(() => {
+          const rem = Math.max(0, expiresAt - Date.now());
+          document.getElementById('mod-timer-fill').style.width = (rem / windowMs * 100) + '%';
+          document.getElementById('mod-timer-label').textContent = `Modifier window: ${Math.ceil(rem / 1000)}s`;
+          if (rem <= 0) { clearInterval(countdownInterval); finish(); }
+        }, 100);
+        countdownTimeout = setTimeout(finish, remaining);
+      };
+      startCountdown();
+
+      fbUnsub = onValue(pendingRollRef, snap => {
+        if (finished) return;
+        const pr = snap.val();
+        if (!pr) return;
+        renderDiceModal(pr.die1, pr.die2, pr.staticBonus, pr.currentTotal, pr.modifiers || [], pr.target, title);
+        document.getElementById('dice-play-mod-btn').style.display =
+          (localGS?.players?.[MY_PCID]?.hand || []).some(c => c.type === 'Modifier') ? '' : 'none';
+        if (pr.expiresAt && pr.expiresAt !== expiresAt) {
+          expiresAt = pr.expiresAt;
+          startCountdown();
+        }
+      });
+
+    } else {
+      // ── Untimed mode: Done button + all-passed detection ──
+      document.getElementById('mod-timer-wrap').style.display = 'none';
+      document.getElementById('mod-timer-label').style.display = 'none';
+
+      const doneBtn = document.getElementById('dice-close-btn');
+      doneBtn.style.display = '';
+      doneBtn.textContent = 'Done';
+      doneBtn.onclick = () => finish();
+
+      // Pass status label inside modal
+      let passStatusEl = document.createElement('div');
+      passStatusEl.style.cssText = 'font-size:.62rem;color:var(--dim);text-align:center;margin-top:.3rem;font-family:Cinzel,serif';
+      const diceModalInner = document.querySelector('#dice-modal .modal');
+      if (diceModalInner) diceModalInner.appendChild(passStatusEl);
+
+      fbUnsub = onValue(pendingRollRef, snap => {
+        if (finished) return;
+        const pr = snap.val();
+        if (!pr) return;
+        renderDiceModal(pr.die1, pr.die2, pr.staticBonus, pr.currentTotal, pr.modifiers || [], pr.target, title);
+        document.getElementById('dice-play-mod-btn').style.display =
+          (localGS?.players?.[MY_PCID]?.hand || []).some(c => c.type === 'Modifier') ? '' : 'none';
+
+        // Pass status
+        const allPlayers = Object.values(localGS?.players || {});
+        const passed = pr.passedPlayers || [];
+        const waiting = allPlayers.filter(p => p.pcid !== pr.rollerId && !passed.includes(p.pcid)).map(p => p.name);
+        if (passStatusEl) passStatusEl.textContent = waiting.length
+          ? `⏳ Waiting for: ${waiting.join(', ')}`
+          : '✓ All players decided';
+
+        // Auto-finish when everyone has passed
+        const nonRollers = allPlayers.filter(p => p.pcid !== MY_PCID);
+        if (nonRollers.length > 0 && nonRollers.every(p => passed.includes(p.pcid))) {
+          finish();
+        }
+      });
+    }
+
+    // Play Modifier button (both modes)
     document.getElementById('dice-play-mod-btn').onclick = () => {
       const gs = deepClone(localGS);
       const me = gs.players[MY_PCID];
@@ -2765,6 +3078,7 @@ function showRollerDiceWindow(target, die1, die2, staticBonus, title) {
         pr.modifiers = pr.modifiers || [];
         pr.modifiers.push({ pcid: MY_PCID, playerName: freshMe.name, cardName: modCard.name, delta, newTotal });
         pr.currentTotal = newTotal;
+        if (!CONFIG.TIMED_WINDOWS) pr.passedPlayers = [];
         pr.expiresAt = Date.now() + CONFIG.MODIFIER_RESET_MS;
         addLog(freshGS, `🃏 ${freshMe.name} plays ${modCard.name}: ${delta >= 0 ? '+' : ''}${delta} → total now ${newTotal}`);
         await pushState(freshGS);
@@ -2776,14 +3090,17 @@ function showRollerDiceWindow(target, die1, die2, staticBonus, title) {
       finished = true;
       clearInterval(countdownInterval);
       clearTimeout(countdownTimeout);
-      fbUnsub(); // unsubscribe Firebase listener
+      fbUnsub();
+      // Clean up untimed UI
+      const passEl = document.querySelector('#dice-modal .modal div[style*="Waiting"]') ||
+                     document.querySelector('#dice-modal .modal div[style*="decided"]');
+      if (passEl) passEl.remove();
       document.getElementById('dice-play-mod-btn').style.display = 'none';
       document.getElementById('mod-timer-wrap').style.display = 'none';
       document.getElementById('mod-timer-label').style.display = 'none';
+      document.getElementById('dice-close-btn').style.display = 'none';
 
-      // Read final total from localGS (most up-to-date after Firebase syncs)
       const finalTotal = localGS?.pendingRoll?.currentTotal ?? (die1 + die2 + staticBonus);
-      // Re-render with final total and show result
       const pr = localGS?.pendingRoll;
       if (pr) renderDiceModal(pr.die1, pr.die2, pr.staticBonus, pr.currentTotal, pr.modifiers || [], pr.target, title);
       const success = finalTotal >= target;
@@ -2792,7 +3109,6 @@ function showRollerDiceWindow(target, die1, die2, staticBonus, title) {
       outcome.style.background = success ? 'rgba(20,100,30,.3)' : 'rgba(150,20,20,.3)';
       outcome.style.color = success ? '#90ff90' : '#ff9090';
 
-      // Resolve immediately — don't make player click a button
       modal.classList.add('hidden');
       resolve(finalTotal);
     }
@@ -2842,41 +3158,47 @@ function askModifierPolarity(modCard) {
 function waitForChallengeWindow() {
   return new Promise((resolve) => {
     const pendingRef = ref(db, `hp_rooms/${myRoom}/gameState/pendingCardPlay`);
-    const expiresAt = localGS?.pendingCardPlay?.expiresAt || (Date.now() + CONFIG.CHALLENGE_WINDOW_MS);
     let resolved = false;
-    let timerInterval;
-
-    timerInterval = setInterval(() => {
-      const rem = Math.max(0, expiresAt - Date.now());
-      const pct = rem / 8000 * 100;
-      // Update our own local countdown if we had any UI for it
-      if (rem <= 0) {
-        clearInterval(timerInterval);
-        finish({ challenged: false });
-      }
-    }, 100);
-
-    const fbListener = onValue(pendingRef, snap => {
-      const data = snap.val();
-      if (!data) { off(pendingRef,'value',fbListener); finish({challenged:false}); return; }
-      if (data.challengerPCID) {
-        off(pendingRef,'value',fbListener);
-        clearInterval(timerInterval);
-        finish({ challenged: true, challengerPCID: data.challengerPCID, challengerName: data.challengerName });
-      }
-    });
-
-    setTimeout(() => {
-      off(pendingRef,'value',fbListener);
-      finish({ challenged: false });
-    }, 8200);
 
     function finish(result) {
       if (resolved) return;
       resolved = true;
+      off(pendingRef, 'value', fbListener);
       clearInterval(timerInterval);
+      clearTimeout(timerTimeout);
       resolve(result);
     }
+
+    // Firebase listener — watches for challenge OR all-passed
+    const fbListener = onValue(pendingRef, snap => {
+      const data = snap.val();
+      if (!data) { finish({ challenged: false }); return; }
+      // Someone challenged
+      if (data.challengerPCID) {
+        finish({ challenged: true, challengerPCID: data.challengerPCID, challengerName: data.challengerName });
+        return;
+      }
+      if (!CONFIG.TIMED_WINDOWS) {
+        // Check if all opponents have passed
+        const allPCIDs = Object.keys(localGS?.players || {});
+        const opponents = allPCIDs.filter(id => id !== data.playedByPCID);
+        const passed = data.passedPlayers || [];
+        if (opponents.length > 0 && opponents.every(id => passed.includes(id))) {
+          finish({ challenged: false });
+        }
+      }
+    });
+
+    let timerInterval, timerTimeout;
+    if (CONFIG.TIMED_WINDOWS) {
+      const expiresAt = localGS?.pendingCardPlay?.expiresAt || (Date.now() + CONFIG.CHALLENGE_WINDOW_MS);
+      timerInterval = setInterval(() => {
+        const rem = Math.max(0, expiresAt - Date.now());
+        if (rem <= 0) { clearInterval(timerInterval); finish({ challenged: false }); }
+      }, 100);
+      timerTimeout = setTimeout(() => finish({ challenged: false }), CONFIG.CHALLENGE_WINDOW_MS + 200);
+    }
+    // Untimed: no timer — only resolves via Firebase listener above
   });
 }
 
@@ -2976,13 +3298,27 @@ function showNotif(msg) {
   setTimeout(() => el.remove(), CONFIG.NOTIF_DURATION_MS);
 }
 
-document.getElementById('discard-pile').addEventListener('click', () => {
-  if (!localGS?.discardPile?.length) return;
+function openDiscardModal() {
+  const pile = localGS?.discardPile || [];
   const container = document.getElementById('discard-modal-cards');
+  const countEl = document.getElementById('discard-modal-count');
   container.innerHTML = '';
-  [...localGS.discardPile].reverse().forEach(c => container.appendChild(makeCardEl(c, {sm:true})));
+  countEl.textContent = pile.length ? `(${pile.length} card${pile.length !== 1 ? 's' : ''})` : '';
+  if (!pile.length) {
+    container.innerHTML = '<div style="color:var(--dim);font-family:Cinzel,serif;font-size:.8rem;padding:1rem">The discard pile is empty.</div>';
+  } else {
+    [...pile].reverse().forEach(c => {
+      const el = makeCardEl(c, { sm: true });
+      el.style.cursor = 'pointer';
+      el.addEventListener('click', () => showCardInfoOverlay(c));
+      container.appendChild(el);
+    });
+  }
   document.getElementById('discard-modal').classList.remove('hidden');
-});
+}
+
+document.getElementById('discard-btn').addEventListener('click', openDiscardModal);
+document.getElementById('discard-pile').addEventListener('click', openDiscardModal);
 document.getElementById('discard-close-btn').addEventListener('click', () => document.getElementById('discard-modal').classList.add('hidden'));
 document.getElementById('rules-btn').addEventListener('click', () => document.getElementById('rules-modal').classList.remove('hidden'));
 document.getElementById('rules-close-btn').addEventListener('click', () => document.getElementById('rules-modal').classList.add('hidden'));

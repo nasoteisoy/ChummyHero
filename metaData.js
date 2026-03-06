@@ -129,13 +129,13 @@ export const CONFIG = {
 
   // ── Timers (milliseconds) ─────────────────────────────────────
   // How long opponents have to play a Challenge card after a Hero/Item/Magic is played
-  CHALLENGE_WINDOW_MS: 8000,
+  CHALLENGE_WINDOW_MS: 15000,
 
   // How long all players have to play a Modifier card after any dice roll
-  MODIFIER_WINDOW_MS: 8000,
+  MODIFIER_WINDOW_MS: 15000,
 
   // After a Modifier is played, how long the window resets to
-  MODIFIER_RESET_MS: 8000,
+  MODIFIER_RESET_MS: 15000,
 
   // How long the dice result stays on screen before auto-dismissing (after modifier window)
   DICE_RESULT_LINGER_MS: 0,   // 0 = instant close, increase for dramatic pause
@@ -202,4 +202,11 @@ export const CONFIG = {
 
   // Maximum characters for a room name
   MAX_ROOM_NAME_LENGTH: 28,
+
+  // ── Window mode ───────────────────────────────────────────────
+  // true  = use countdown timers for challenge & modifier windows
+  // false = wait until all players explicitly pass (or someone acts)
+  //         Once one player challenges, no need to wait for others.
+  //         Timers in metaData are still used when this is true.
+  TIMED_WINDOWS: false,
 };
