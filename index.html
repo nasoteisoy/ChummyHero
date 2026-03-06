@@ -1092,7 +1092,6 @@ async function createRoom(roomName = '') {
     players: { [MY_PCID]: { name: myName, pcid: MY_PCID, ready: true } },
     created: Date.now()
   });
-  });
   myRoom = code;
   isHost = true;
   enterWaiting();
