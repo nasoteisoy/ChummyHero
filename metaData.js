@@ -121,3 +121,85 @@ export const CARDS = {
     {id:'pl6',name:'The Shadow Claw',      type:'Party Leader: Thief',    effect:"Once per turn on your turn, you may spend an action point to pull a card from another player's hand."},
   ],
 };
+
+// ════════════════════════════════════════
+// Game Configuration
+// ════════════════════════════════════════
+export const CONFIG = {
+
+  // ── Timers (milliseconds) ─────────────────────────────────────
+  // How long opponents have to play a Challenge card after a Hero/Item/Magic is played
+  CHALLENGE_WINDOW_MS: 8000,
+
+  // How long all players have to play a Modifier card after any dice roll
+  MODIFIER_WINDOW_MS: 8000,
+
+  // After a Modifier is played, how long the window resets to
+  MODIFIER_RESET_MS: 8000,
+
+  // How long the dice result stays on screen before auto-dismissing (after modifier window)
+  DICE_RESULT_LINGER_MS: 0,   // 0 = instant close, increase for dramatic pause
+
+  // Long-press duration on mobile to reveal a card tooltip (ms)
+  TOOLTIP_LONGPRESS_MS: 400,
+
+  // Duration of floating notification toasts (ms)
+  NOTIF_DURATION_MS: 2500,
+
+  // Duration of the challenge-won/lost flash overlay (ms)
+  CHALLENGE_FLASH_MS: 2000,
+
+  // ── Turns & Action Points ─────────────────────────────────────
+  // Default AP at start of each turn
+  AP_PER_TURN: 3,
+
+  // Bonus AP granted to a player who has slain Mega Slime
+  AP_MEGA_SLIME_BONUS: 1,           // total = AP_PER_TURN + this
+
+  // AP costs for each action
+  AP_COST_DRAW: 1,
+  AP_COST_PLAY_CARD: 1,
+  AP_COST_ROLL_HERO: 1,
+  AP_COST_ATTACK: 2,
+  AP_COST_REDRAW: 3,                // discard hand + draw REDRAW_COUNT cards
+
+  // ── Hand & Deck ───────────────────────────────────────────────
+  // Cards dealt to each player at game start
+  STARTING_HAND_SIZE: 5,
+
+  // Cards drawn when using the Redraw action
+  REDRAW_COUNT: 5,
+
+  // Max cards Wily Red draws up to
+  WILY_RED_MAX_HAND: 7,
+
+  // Maximum entries kept in the game log before trimming
+  LOG_MAX_ENTRIES: 100,
+
+  // ── Monster Row ───────────────────────────────────────────────
+  // How many monsters are visible in the row at once
+  MONSTER_ROW_SIZE: 3,
+
+  // ── Win Conditions ────────────────────────────────────────────
+  // Monsters needed to win via the "slay" condition
+  WIN_MONSTERS_NEEDED: 3,
+
+  // Distinct hero classes needed to win via the "party" condition
+  WIN_HERO_CLASSES_NEEDED: 6,
+
+  // ── Room & Players ────────────────────────────────────────────
+  // Maximum players allowed in one room
+  MAX_PLAYERS: 6,
+
+  // Minimum players required to start a game
+  MIN_PLAYERS_TO_START: 2,
+
+  // Minimum characters required for an adventurer name
+  MIN_NAME_LENGTH: 2,
+
+  // Maximum characters for an adventurer name
+  MAX_NAME_LENGTH: 20,
+
+  // Maximum characters for a room name
+  MAX_ROOM_NAME_LENGTH: 28,
+};

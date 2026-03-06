@@ -642,7 +642,7 @@ let pendingAction = null;
 // ════════════════════════════════════════
 // CARD DATA (imported from metaData.js)
 // ════════════════════════════════════════
-import { CARDS } from './metaData.js';
+import { CARDS, CONFIG } from './metaData.js';
 
 // ── IMAGE MAPPING ──
 function cardImage(card) {
@@ -807,7 +807,7 @@ function makeCardEl(card, opts={}) {
     pressTimer = setTimeout(() => {
       didLongPress = true;
       showTooltipAt(card, el);
-    }, 400);
+    }, CONFIG.TOOLTIP_LONGPRESS_MS);
   }, { passive: true });
   el.addEventListener('touchend', () => {
     clearTimeout(pressTimer);
@@ -860,7 +860,7 @@ document.getElementById('recovery-name').addEventListener('keydown', e => { if (
 
 async function confirmName() {
   const raw = document.getElementById('name-input').value.trim();
-  if (!raw || raw.length < 2) { setMsg('name-msg','Name must be at least 2 characters.'); return; }
+  if (!raw || raw.length < CONFIG.MIN_NAME_LENGTH) { setMsg('name-msg',`Name must be at least ${CONFIG.MIN_NAME_LENGTH} characters.`); return; }
   const name = raw;
   clearMsg('name-msg');
   const btn = document.getElementById('name-confirm-btn');
@@ -936,7 +936,7 @@ function loadRooms() {
       if (r.status !== 'waiting') return false;
       const players = Object.keys(r.players || {});
       // Show if player is already in it OR it's open
-      return players.includes(MY_PCID) || players.length < 6;
+      return players.includes(MY_PCID) || players.length < CONFIG.MAX_PLAYERS;
     });
     if (!available.length) {
       container.innerHTML = '<div style="font-size:.78rem;color:var(--dim);text-align:center;padding:.5rem">No open rooms found.</div>';
@@ -1005,7 +1005,7 @@ async function joinRoom(code) {
   const r = snap.val();
   if (r.status !== 'waiting') { setMsg('lobby-msg','That game has already started.'); return; }
   const players = r.players || {};
-  if (!players[MY_PCID] && Object.keys(players).length >= 6) { setMsg('lobby-msg','Room is full.'); return; }
+  if (!players[MY_PCID] && Object.keys(players).length >= CONFIG.MAX_PLAYERS) { setMsg('lobby-msg','Room is full.'); return; }
   await update(ref(db, `hp_rooms/${code}/players/${MY_PCID}`), { name: myName, pcid: MY_PCID, ready: true });
   myRoom = code;
   isHost = r.host === MY_PCID;
@@ -1043,8 +1043,8 @@ function listenRoom() {
     else { nameEl.style.display = 'none'; }
     const startBtn = document.getElementById('start-game-btn');
     isHost = room.host === MY_PCID;
-    startBtn.style.display = isHost && players.length >= 2 ? '' : 'none';
-    document.getElementById('waiting-status').textContent = players.length < 2 ? 'Waiting for more players... (need at least 2)' : `${players.length} player${players.length>1?'s':''} ready`;
+    startBtn.style.display = isHost && players.length >= CONFIG.MIN_PLAYERS_TO_START ? '' : 'none';
+    document.getElementById('waiting-status').textContent = players.length < CONFIG.MIN_PLAYERS_TO_START ? 'Waiting for more players... (need at least 2)' : `${players.length} player${players.length>1?'s':''} ready`;
   });
 }
 
@@ -1060,7 +1060,7 @@ document.getElementById('start-game-btn').addEventListener('click', async () => 
   const snap = await get(ref(db,`hp_rooms/${myRoom}`));
   const room = snap.val();
   const players = Object.values(room.players || {});
-  if (players.length < 2) { setMsg('waiting-msg','Need at least 2 players.'); return; }
+  if (players.length < CONFIG.MIN_PLAYERS_TO_START) { setMsg('waiting-msg',`Need at least ${CONFIG.MIN_PLAYERS_TO_START} players.`); return; }
   // Build game state
   const gs = buildInitialGameState(players);
   await update(ref(db,`hp_rooms/${myRoom}`), { status:'playing', gameState: gs });
@@ -1073,8 +1073,8 @@ function buildInitialGameState(players) {
   const deck = buildMainDeck();
   const monsterDeck = buildMonsterDeck();
   // Shuffle monsters and pick 5 for row, rest are side
-  const monsterRow = monsterDeck.slice(0,3);
-  const monsterReserve = monsterDeck.slice(3);
+  const monsterRow = monsterDeck.slice(0, CONFIG.MONSTER_ROW_SIZE);
+  const monsterReserve = monsterDeck.slice(CONFIG.MONSTER_ROW_SIZE);
   // Deal party leaders
   const leaders = shuffle([...CARDS.partyLeaders]);
   // Deal initial hands + party leaders
@@ -1082,12 +1082,12 @@ function buildInitialGameState(players) {
   players.forEach((p, i) => {
     const leader = leaders[i % leaders.length];
     const hand = [];
-    for (let j = 0; j < 5; j++) { if (deck.length) hand.push(deck.shift()); }
+    for (let j = 0; j < CONFIG.STARTING_HAND_SIZE; j++) { if (deck.length) hand.push(deck.shift()); }
     playerStates[p.pcid] = {
       name: p.name, pcid: p.pcid,
       hand: hand || [], party: [], equippedItems: {},
       slayedMonsters: [], partyLeader: {...leader, uid:`pl_${i}`},
-      actionPoints: 3, rolledHeroes: [],
+      actionPoints: CONFIG.AP_PER_TURN, rolledHeroes: [],
       statusEffects: {}
     };
   });
@@ -1182,7 +1182,7 @@ function handleChallengeBanner(gs) {
   clearInterval(window._challengeTimerInterval);
   window._challengeTimerInterval = setInterval(() => {
     const rem = Math.max(0, pending.expiresAt - Date.now());
-    document.getElementById('ch-timer-fill').style.width = (rem / 8000 * 100) + '%';
+    document.getElementById('ch-timer-fill').style.width = (rem / CONFIG.CHALLENGE_WINDOW_MS * 100) + '%';
     document.getElementById('ch-timer-label').textContent = `${Math.ceil(rem/1000)}s`;
     if (rem <= 0) { clearInterval(window._challengeTimerInterval); banner.classList.add('hidden'); }
   }, 100);
@@ -1235,7 +1235,7 @@ function handleModifierBanner(gs) {
       proll.modifiers = proll.modifiers || [];
       proll.modifiers.push({ pcid: MY_PCID, playerName: freshMe.name, cardName: card.name, delta, newTotal });
       proll.currentTotal = newTotal;
-      proll.expiresAt = Date.now() + 8000;
+      proll.expiresAt = Date.now() + CONFIG.MODIFIER_RESET_MS;
       addLog(freshGS, `🃏 ${freshMe.name} plays ${card.name}: ${delta>=0?'+':''}${delta} → total now ${newTotal}`);
       await pushState(freshGS);
     }});
@@ -1248,7 +1248,7 @@ function handleModifierBanner(gs) {
   clearInterval(window._modBannerInterval);
   window._modBannerInterval = setInterval(() => {
     const rem = Math.max(0, pr.expiresAt - Date.now());
-    document.getElementById('mb-timer-fill').style.width = (rem / 8000 * 100) + '%';
+    document.getElementById('mb-timer-fill').style.width = (rem / CONFIG.MODIFIER_WINDOW_MS * 100) + '%';
     if (rem <= 0) { clearInterval(window._modBannerInterval); banner.classList.add('hidden'); }
   }, 100);
 }
@@ -1467,31 +1467,31 @@ async function doAction(type) {
   me.statusEffects = me.statusEffects || {};
 
   if (type === 'draw') {
-    if (me.actionPoints < 1) { showNotif('Not enough AP!'); return; }
+    if (me.actionPoints < CONFIG.AP_COST_DRAW) { showNotif('Not enough AP!'); return; }
     drawCards(gs, MY_PCID, 1);
-    me.actionPoints--;
+    me.actionPoints -= CONFIG.AP_COST_DRAW;
     addLog(gs, `${me.name} draws a card.`);
     await pushState(gs);
   }
   else if (type === 'redraw') {
-    if (me.actionPoints < 3) { showNotif('Need 3 AP!'); return; }
+    if (me.actionPoints < CONFIG.AP_COST_REDRAW) { showNotif(`Need ${CONFIG.AP_COST_REDRAW} AP!`); return; }
     gs.discardPile.push(...me.hand);
     me.hand = [];
-    drawCards(gs, MY_PCID, 5);
-    me.actionPoints -= 3;
-    addLog(gs, `${me.name} discards hand and draws 5 cards.`);
+    drawCards(gs, MY_PCID, CONFIG.REDRAW_COUNT);
+    me.actionPoints -= CONFIG.AP_COST_REDRAW;
+    addLog(gs, `${me.name} discards hand and draws ' + CONFIG.REDRAW_COUNT + ' cards.`);
     await pushState(gs);
   }
   else if (type === 'play') {
     if (!mySelectedCardUid) { showNotif('Select a card from your hand first.'); return; }
-    if (me.actionPoints < 1) { showNotif('Not enough AP!'); return; }
+    if (me.actionPoints < CONFIG.AP_COST_PLAY_CARD) { showNotif('Not enough AP!'); return; }
     const card = me.hand.find(c => c.uid === mySelectedCardUid);
     if (!card) { showNotif('Card not found in hand.'); return; }
     await playCard(gs, card);
   }
   else if (type === 'roll') {
     if (!mySelectedPartyUid) { showNotif('Select a Hero in your Party to roll for.'); return; }
-    if (me.actionPoints < 1) { showNotif('Not enough AP!'); return; }
+    if (me.actionPoints < CONFIG.AP_COST_ROLL_HERO) { showNotif('Not enough AP!'); return; }
     const hero = me.party.find(h => h.uid === mySelectedPartyUid);
     if (!hero) { showNotif('Hero not found.'); return; }
     if ((me.rolledHeroes||[]).includes(hero.uid)) { showNotif('Already rolled for this hero this turn.'); return; }
@@ -1499,7 +1499,7 @@ async function doAction(type) {
   }
   else if (type === 'attack') {
     if (!mySelectedMonsterUid) { showNotif('Select a Monster from the row to attack.'); return; }
-    if (me.actionPoints < 2) { showNotif('Need 2 AP!'); return; }
+    if (me.actionPoints < CONFIG.AP_COST_ATTACK) { showNotif(`Need ${CONFIG.AP_COST_ATTACK} AP!`); return; }
     const monster = gs.monsterRow.find(m => m.uid === mySelectedMonsterUid);
     if (!monster) { showNotif('Monster not found.'); return; }
     await attackMonster(gs, monster);
@@ -1517,7 +1517,7 @@ async function playCard(gs, card) {
   me.statusEffects = me.statusEffects || {};
 
   me.hand = me.hand.filter(c => c.uid !== card.uid);
-  me.actionPoints--;
+  me.actionPoints -= CONFIG.AP_COST_PLAY_CARD;
   mySelectedCardUid = null;
 
   // ── CHALLENGE WINDOW for Hero / Item / Magic ──
@@ -1530,7 +1530,7 @@ async function playCard(gs, card) {
         cardData: card,
         playedByPCID: MY_PCID,
         playedByName: me.name,
-        expiresAt: Date.now() + 8000,
+        expiresAt: Date.now() + CONFIG.CHALLENGE_WINDOW_MS,
         challengerPCID: null,
         challengerName: null,
         resolved: false
@@ -1571,7 +1571,7 @@ async function playCard(gs, card) {
           addLog(freshGS, `✅ ${freshMe.name} wins the challenge! ${card.name} resolves.`);
           document.getElementById('challenge-flash').classList.remove('hidden');
           document.getElementById('challenge-info').textContent = `${freshMe.name} wins! Card resolves.`;
-          setTimeout(() => document.getElementById('challenge-flash').classList.add('hidden'), 2000);
+          setTimeout(() => document.getElementById('challenge-flash').classList.add('hidden'), CONFIG.CHALLENGE_FLASH_MS);
           await pushState(freshGS);
           await applyCardEffect(freshGS, card);
         } else {
@@ -1712,7 +1712,7 @@ async function rollForHero(gs, hero, skipDeduct=false) {
     context: 'hero', contextName: hero.name,
     die1, die2, rawRoll, staticBonus,
     modifiers: [], currentTotal,
-    target: hero.roll, expiresAt: Date.now() + 8000, resolved: false
+    target: hero.roll, expiresAt: Date.now() + CONFIG.MODIFIER_WINDOW_MS, resolved: false
   };
   addLog(gs, `${me.name} rolls for ${hero.name}: [${die1}+${die2}]${staticBonus?`${staticBonus>=0?'+':''}${staticBonus}`:''}=${currentTotal} (need ${hero.roll}+)`);
   await pushState(gs);
@@ -1755,7 +1755,7 @@ async function attackMonster(gs, monster) {
     showNotif(`Need ${formatReq(monster.require)} to attack ${monster.name}!`);
     return;
   }
-  me.actionPoints -= 2;
+  me.actionPoints -= CONFIG.AP_COST_ATTACK;
 
   const { die1, die2, total: rawRoll } = rollDice();
   let staticBonus = 0;
@@ -1769,7 +1769,7 @@ async function attackMonster(gs, monster) {
     context: 'attack', contextName: monster.name,
     die1, die2, rawRoll, staticBonus,
     modifiers: [], currentTotal,
-    target: monster.winRoll, expiresAt: Date.now() + 8000, resolved: false
+    target: monster.winRoll, expiresAt: Date.now() + CONFIG.MODIFIER_WINDOW_MS, resolved: false
   };
   addLog(gs, `${me.name} attacks ${monster.name}: [${die1}+${die2}]${staticBonus?`+${staticBonus}`:''}=${currentTotal}`);
   await pushState(gs);
@@ -2192,7 +2192,7 @@ async function applyHeroEffect(gs, hero) {
     if (idx >= 0) gs.discardPile.push(me.hand.splice(idx, 1)[0]);
   }
   else if (hero.name === 'Wily Red') {
-    while (me.hand.length < 7 && gs.deck.length) me.hand.push(gs.deck.shift());
+    while (me.hand.length < CONFIG.WILY_RED_MAX_HAND && gs.deck.length) me.hand.push(gs.deck.shift());
     addLog(gs, `${me.name} draws to 7 cards.`);
   }
 
@@ -2641,7 +2641,7 @@ function dieFace(n) {
 function addLog(gs, msg) {
   gs.log = gs.log||[];
   gs.log.push(msg);
-  if (gs.log.length > 100) gs.log = gs.log.slice(-100);
+  if (gs.log.length > CONFIG.LOG_MAX_ENTRIES) gs.log = gs.log.slice(-CONFIG.LOG_MAX_ENTRIES);
 }
 
 async function pushState(gs) {
@@ -2673,7 +2673,7 @@ async function endTurn() {
     nextPlayer.rolledHeroes = [];
     nextPlayer.statusEffects = nextPlayer.statusEffects || {};
   }
-  nextPlayer.actionPoints = nextPlayer?.slayedMonsters?.some(m => m.name === 'Mega Slime') ? 4 : 3;
+  nextPlayer.actionPoints = (CONFIG.AP_PER_TURN + (nextPlayer?.slayedMonsters?.some(m => m.name === 'Mega Slime') ? CONFIG.AP_MEGA_SLIME_BONUS : 0));
   if (gsMe.statusEffects) {
     delete gsMe.statusEffects.vibrantGlow;
     delete gsMe.statusEffects.wiseShield;
@@ -2692,7 +2692,7 @@ async function endTurn() {
 // ────────────────────────────────────────────────────────────────
 function showRollerDiceWindow(target, die1, die2, staticBonus, title) {
   return new Promise((resolve) => {
-    const windowMs = 8000;
+    const windowMs = CONFIG.MODIFIER_WINDOW_MS;
     let expiresAt = Date.now() + windowMs;
     let finished = false;
     let countdownInterval;
@@ -2765,7 +2765,7 @@ function showRollerDiceWindow(target, die1, die2, staticBonus, title) {
         pr.modifiers = pr.modifiers || [];
         pr.modifiers.push({ pcid: MY_PCID, playerName: freshMe.name, cardName: modCard.name, delta, newTotal });
         pr.currentTotal = newTotal;
-        pr.expiresAt = Date.now() + windowMs;
+        pr.expiresAt = Date.now() + CONFIG.MODIFIER_RESET_MS;
         addLog(freshGS, `🃏 ${freshMe.name} plays ${modCard.name}: ${delta >= 0 ? '+' : ''}${delta} → total now ${newTotal}`);
         await pushState(freshGS);
       });
@@ -2842,7 +2842,7 @@ function askModifierPolarity(modCard) {
 function waitForChallengeWindow() {
   return new Promise((resolve) => {
     const pendingRef = ref(db, `hp_rooms/${myRoom}/gameState/pendingCardPlay`);
-    const expiresAt = localGS?.pendingCardPlay?.expiresAt || (Date.now() + 8000);
+    const expiresAt = localGS?.pendingCardPlay?.expiresAt || (Date.now() + CONFIG.CHALLENGE_WINDOW_MS);
     let resolved = false;
     let timerInterval;
 
@@ -2937,13 +2937,13 @@ function checkWin() {
   if (!localGS) return;
   for (const p of Object.values(localGS.players)) {
     // Condition 1: 3 monsters
-    if ((p.slayedMonsters||[]).length >= 3) {
+    if ((p.slayedMonsters||[]).length >= CONFIG.WIN_MONSTERS_NEEDED) {
       showWin(p, '3 Monsters Slain!');
       return;
     }
     // Condition 2: 6 different hero classes
     const classes = getPartyClasses(p);
-    if (classes.size >= 6) {
+    if (classes.size >= CONFIG.WIN_HERO_CLASSES_NEEDED) {
       showWin(p, '6 Hero Classes in Party!');
       return;
     }
@@ -2973,7 +2973,7 @@ function showNotif(msg) {
     letter-spacing:.05em`;
   el.textContent = msg;
   document.body.appendChild(el);
-  setTimeout(() => el.remove(), 2500);
+  setTimeout(() => el.remove(), CONFIG.NOTIF_DURATION_MS);
 }
 
 document.getElementById('discard-pile').addEventListener('click', () => {
