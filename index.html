@@ -1,0 +1,1769 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chummy Games – Hero Party</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700;900&family=Cinzel:wght@400;600;700&family=IM+Fell+English:ital@0;1&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0d0a07;
+  --panel: #1a1208;
+  --panel2: #221a0e;
+  --border: #6b4c1e;
+  --gold: #c9901a;
+  --gold2: #f0c040;
+  --red: #9b2020;
+  --red2: #d43030;
+  --green: #1a6b2a;
+  --green2: #2ea84a;
+  --blue: #1a3a6b;
+  --blue2: #3a6bc9;
+  --text: #e8d5a0;
+  --text2: #c4a860;
+  --dim: #7a6040;
+  --card-w: 90px;
+  --card-h: 126px;
+  --card-w-lg: 120px;
+  --card-h-lg: 168px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-family:'IM Fell English',serif;color:var(--text)}
+
+/* ── SCROLLBARS ── */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:var(--panel)}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+
+/* ── SCREENS ── */
+.screen{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity .4s;z-index:10}
+.screen.hidden{opacity:0;pointer-events:none}
+
+/* ── BACKGROUND TEXTURE ── */
+body::before{content:'';position:fixed;inset:0;background:
+  radial-gradient(ellipse at 20% 20%, rgba(100,60,10,.25) 0%, transparent 60%),
+  radial-gradient(ellipse at 80% 80%, rgba(80,20,20,.25) 0%, transparent 60%),
+  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='.04'/%3E%3C/svg%3E");
+  pointer-events:none;z-index:0}
+
+/* ── LOGO / TITLE ── */
+.game-title{font-family:'Cinzel Decorative',cursive;font-size:clamp(1.4rem,4vw,2.6rem);color:var(--gold2);text-shadow:0 0 30px rgba(200,140,20,.5),0 2px 4px rgba(0,0,0,.8);letter-spacing:.05em;text-align:center;margin-bottom:.25rem}
+.game-sub{font-family:'Cinzel',serif;font-size:.85rem;color:var(--text2);letter-spacing:.3em;text-transform:uppercase;margin-bottom:2rem}
+
+/* ── PANEL ── */
+.panel{background:linear-gradient(160deg,var(--panel) 0%,var(--panel2) 100%);border:1px solid var(--border);border-radius:8px;padding:1.5rem 2rem;min-width:320px;max-width:480px;width:90%;position:relative;box-shadow:0 8px 40px rgba(0,0,0,.7),inset 0 1px 0 rgba(200,160,40,.1)}
+.panel::before{content:'';position:absolute;inset:2px;border:1px solid rgba(100,70,20,.2);border-radius:7px;pointer-events:none}
+
+/* ── FORM ELEMENTS ── */
+.field{margin-bottom:1rem}
+.field label{display:block;font-family:'Cinzel',serif;font-size:.75rem;color:var(--text2);letter-spacing:.15em;text-transform:uppercase;margin-bottom:.4rem}
+.field input{width:100%;background:rgba(0,0,0,.5);border:1px solid var(--border);border-radius:4px;padding:.6rem .9rem;color:var(--text);font-family:'IM Fell English',serif;font-size:1rem;outline:none;transition:border-color .2s}
+.field input:focus{border-color:var(--gold)}
+.field input::placeholder{color:var(--dim)}
+
+/* ── BUTTONS ── */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;font-family:'Cinzel',serif;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;padding:.6rem 1.4rem;border-radius:4px;cursor:pointer;border:1px solid;transition:all .2s;outline:none;text-decoration:none}
+.btn-gold{background:linear-gradient(135deg,#7a4a0a,#c9901a);border-color:var(--gold2);color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.5)}
+.btn-gold:hover{background:linear-gradient(135deg,#9a5a10,#e0a020);box-shadow:0 0 15px rgba(200,140,20,.4)}
+.btn-dark{background:rgba(0,0,0,.4);border-color:var(--border);color:var(--text2)}
+.btn-dark:hover{background:rgba(0,0,0,.6);border-color:var(--gold);color:var(--gold2)}
+.btn-red{background:linear-gradient(135deg,#5a1010,#9b2020);border-color:var(--red2);color:#fff}
+.btn-red:hover{background:linear-gradient(135deg,#7a1515,#c03030)}
+.btn-green{background:linear-gradient(135deg,#0a3a15,#1a6b2a);border-color:var(--green2);color:#fff}
+.btn-green:hover{background:linear-gradient(135deg,#104520,#2a8a40)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn-full{width:100%;margin-bottom:.6rem}
+
+/* ── MSG ── */
+.msg{font-size:.82rem;padding:.5rem .8rem;border-radius:4px;margin-top:.5rem;text-align:center}
+.msg-error{background:rgba(150,20,20,.3);border:1px solid var(--red2);color:#ff9090}
+.msg-ok{background:rgba(20,100,30,.3);border:1px solid var(--green2);color:#90ff90}
+.msg-info{background:rgba(20,50,100,.3);border:1px solid var(--blue2);color:#90b0ff}
+
+/* ── ROOM LIST ── */
+.room-list{max-height:200px;overflow-y:auto;margin:1rem 0}
+.room-item{display:flex;align-items:center;justify-content:space-between;padding:.5rem .8rem;border:1px solid var(--border);border-radius:4px;margin-bottom:.4rem;cursor:pointer;transition:all .2s;font-family:'Cinzel',serif;font-size:.8rem}
+.room-item:hover{border-color:var(--gold);background:rgba(100,70,20,.15)}
+.room-item.selected{border-color:var(--gold2);background:rgba(100,70,20,.25)}
+.room-code{color:var(--gold2);font-weight:700;letter-spacing:.1em}
+.room-players{color:var(--dim);font-size:.72rem}
+
+/* ── WAITING ROOM ── */
+.waiting-players{display:flex;flex-wrap:wrap;gap:.5rem;margin:1rem 0;justify-content:center}
+.waiting-player{background:rgba(0,0,0,.4);border:1px solid var(--border);border-radius:20px;padding:.3rem .8rem;font-family:'Cinzel',serif;font-size:.78rem;color:var(--text2)}
+.waiting-player.you{border-color:var(--gold);color:var(--gold2)}
+
+/* ── GAME LAYOUT ── */
+#game-screen{position:fixed;inset:0;display:flex;flex-direction:column;background:var(--bg);overflow:hidden}
+#game-screen.hidden{display:none}
+
+.game-top{flex:0 0 auto;padding:.4rem .6rem;background:var(--panel);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.8rem;flex-wrap:wrap}
+.game-info-pill{font-family:'Cinzel',serif;font-size:.7rem;color:var(--text2);background:rgba(0,0,0,.3);border:1px solid var(--border);border-radius:20px;padding:.15rem .6rem;letter-spacing:.05em}
+.game-info-pill span{color:var(--gold2);font-weight:700}
+.ap-dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--gold);margin-right:2px;transition:all .2s}
+.ap-dot.spent{background:var(--dim)}
+
+.game-middle{flex:1 1 0;display:flex;overflow:hidden}
+.monster-col{width:180px;flex:0 0 auto;padding:.5rem;overflow-y:auto;border-right:1px solid var(--border);background:rgba(0,0,0,.2)}
+.monster-col h3{font-family:'Cinzel',serif;font-size:.65rem;color:var(--text2);letter-spacing:.2em;text-transform:uppercase;margin-bottom:.5rem;text-align:center}
+.opponents-area{flex:1 1 0;padding:.5rem;overflow-y:auto;display:flex;flex-wrap:wrap;gap:.5rem;align-content:flex-start}
+
+.game-bottom{flex:0 0 auto;border-top:2px solid var(--border);background:var(--panel2);padding:.4rem .5rem;display:flex;flex-direction:column;gap:.3rem;max-height:45vh;overflow-y:auto}
+.my-area-label{font-family:'Cinzel',serif;font-size:.65rem;color:var(--gold);letter-spacing:.2em;text-transform:uppercase}
+
+/* ── PLAYER PANELS ── */
+.player-panel{background:rgba(0,0,0,.3);border:1px solid var(--border);border-radius:6px;padding:.5rem;min-width:160px;flex:0 0 auto}
+.player-panel.active-turn{border-color:var(--gold2);box-shadow:0 0 12px rgba(200,150,20,.3)}
+.player-panel.you{border-color:rgba(100,70,20,.6)}
+.player-name{font-family:'Cinzel',serif;font-size:.7rem;color:var(--gold2);letter-spacing:.05em;margin-bottom:.3rem;display:flex;align-items:center;gap:.4rem}
+.player-name .turn-badge{background:var(--gold);color:#000;border-radius:3px;padding:0 .3rem;font-size:.6rem}
+.party-row{display:flex;flex-wrap:wrap;gap:3px;margin-bottom:.3rem;min-height:20px}
+
+/* ── CARDS ── */
+.card{width:var(--card-w);height:var(--card-h);border-radius:5px;border:1px solid var(--border);cursor:pointer;position:relative;transition:transform .15s,box-shadow .15s,border-color .15s;flex:0 0 auto;overflow:hidden;background:var(--panel)}
+.card img{width:100%;height:100%;object-fit:cover;display:block}
+.card:hover{transform:translateY(-4px) scale(1.04);box-shadow:0 6px 20px rgba(0,0,0,.6);border-color:var(--gold);z-index:10}
+.card.selected{border-color:var(--gold2);box-shadow:0 0 12px rgba(200,150,20,.5);transform:translateY(-6px) scale(1.05);z-index:10}
+.card.face-down img{display:none}
+.card.face-down::after{content:'';position:absolute;inset:0;background:url('images/Card_Back.png') center/cover}
+.card-sm{width:60px;height:84px}
+.card-lg{width:var(--card-w-lg);height:var(--card-h-lg)}
+
+.card-count{position:absolute;top:2px;right:3px;background:rgba(0,0,0,.8);color:var(--gold2);font-size:.6rem;font-family:'Cinzel',serif;padding:1px 4px;border-radius:3px}
+
+/* Equipped item indicator */
+.card-equipped{position:absolute;bottom:2px;left:2px;right:2px;height:22px;border-radius:3px;border:1px solid var(--gold);overflow:hidden}
+.card-equipped img{width:100%;height:100%;object-fit:cover}
+
+/* ── HAND ── */
+.hand-area{display:flex;flex-wrap:wrap;gap:4px;padding:.3rem 0;min-height:calc(var(--card-h) + 12px)}
+.hand-label{font-family:'Cinzel',serif;font-size:.65rem;color:var(--text2);letter-spacing:.15em;text-transform:uppercase;margin-bottom:.2rem}
+
+/* ── DECK & DISCARD ── */
+.deck-discard{display:flex;gap:.5rem;align-items:flex-start}
+.deck-box{display:flex;flex-direction:column;align-items:center;gap:.2rem}
+.deck-box .label{font-family:'Cinzel',serif;font-size:.6rem;color:var(--dim);letter-spacing:.1em;text-transform:uppercase}
+
+/* ── ACTION BAR ── */
+.action-bar{display:flex;gap:.4rem;flex-wrap:wrap;align-items:center;padding:.3rem 0;border-top:1px solid rgba(100,70,20,.3)}
+.action-bar .btn{padding:.35rem .8rem;font-size:.68rem}
+.action-section{font-family:'Cinzel',serif;font-size:.65rem;color:var(--dim);letter-spacing:.1em;margin-right:.2rem}
+
+/* ── MODAL ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:100;display:flex;align-items:center;justify-content:center;padding:1rem}
+.modal-overlay.hidden{display:none}
+.modal{background:linear-gradient(160deg,var(--panel),var(--panel2));border:1px solid var(--border);border-radius:8px;padding:1.5rem;max-width:600px;width:100%;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.8)}
+.modal h2{font-family:'Cinzel Decorative',cursive;font-size:1.1rem;color:var(--gold2);margin-bottom:1rem}
+.modal h3{font-family:'Cinzel',serif;font-size:.85rem;color:var(--gold);letter-spacing:.1em;text-transform:uppercase;margin-bottom:.5rem}
+.modal-cards{display:flex;flex-wrap:wrap;gap:.4rem;margin:.5rem 0;max-height:300px;overflow-y:auto}
+.modal-btns{display:flex;gap:.6rem;flex-wrap:wrap;margin-top:1rem;justify-content:flex-end}
+
+/* ── CARD TOOLTIP ── */
+.tooltip{position:fixed;z-index:200;background:var(--panel);border:1px solid var(--gold);border-radius:6px;padding:.7rem;max-width:240px;font-size:.78rem;line-height:1.4;pointer-events:none;box-shadow:0 4px 20px rgba(0,0,0,.8)}
+.tooltip.hidden{display:none}
+.tooltip-name{font-family:'Cinzel',serif;font-size:.85rem;color:var(--gold2);margin-bottom:.3rem}
+.tooltip-type{font-size:.7rem;color:var(--text2);margin-bottom:.2rem;font-style:italic}
+.tooltip-roll{font-family:'Cinzel',serif;font-size:.75rem;color:var(--red2);margin-bottom:.2rem}
+.tooltip-effect{color:var(--text);font-size:.76rem}
+
+/* ── DICE ── */
+.dice-display{font-size:3rem;text-align:center;padding:.5rem;animation:diceSpin .5s ease-out}
+@keyframes diceSpin{0%{transform:rotate(-15deg) scale(0.5);opacity:0}100%{transform:rotate(0deg) scale(1);opacity:1}}
+.dice-result{font-family:'Cinzel Decorative',cursive;font-size:2rem;color:var(--gold2);text-align:center}
+.dice-breakdown{font-size:.8rem;color:var(--text2);text-align:center;margin-top:.3rem}
+
+/* ── LOG ── */
+.game-log{position:fixed;right:0;top:0;bottom:0;width:220px;background:rgba(10,8,4,.9);border-left:1px solid var(--border);padding:.5rem;overflow-y:auto;z-index:5;font-size:.72rem;display:flex;flex-direction:column}
+.game-log.collapsed{width:28px;overflow:hidden}
+.log-toggle{cursor:pointer;font-family:'Cinzel',serif;font-size:.65rem;color:var(--gold);letter-spacing:.1em;margin-bottom:.4rem;display:flex;align-items:center;gap:.3rem}
+.log-entry{padding:.2rem 0;border-bottom:1px solid rgba(100,70,20,.15);line-height:1.3;color:var(--text2)}
+.log-entry.you{color:var(--gold2)}
+.log-entry.system{color:var(--text2);font-style:italic}
+.log-entry.action{color:#90ff90}
+.log-entry.attack{color:#ff9090}
+
+/* ── STATUS EFFECTS ── */
+.status-bar{display:flex;flex-wrap:wrap;gap:2px;margin-top:2px}
+.status-badge{font-size:.58rem;font-family:'Cinzel',serif;padding:1px 4px;border-radius:2px;letter-spacing:.05em}
+.status-protected{background:rgba(30,100,200,.4);border:1px solid #5090ff;color:#aad0ff}
+.status-iron{background:rgba(100,100,100,.4);border:1px solid #aaa;color:#ccc}
+.status-vibrant{background:rgba(200,200,30,.3);border:1px solid #e0e050;color:#f0f080}
+.status-enchanted{background:rgba(100,20,200,.3);border:1px solid #a060ff;color:#d0b0ff}
+
+/* ── MONSTER CARD ── */
+.monster-card{width:100%;margin-bottom:.5rem;border:1px solid var(--border);border-radius:5px;overflow:hidden;cursor:pointer;transition:border-color .2s}
+.monster-card:hover{border-color:var(--gold)}
+.monster-card img{width:100%;display:block}
+.monster-label{font-family:'Cinzel',serif;font-size:.6rem;color:var(--text2);padding:.2rem;text-align:center;background:rgba(0,0,0,.5)}
+
+/* ── LEADER CARD ── */
+.leader-area{display:flex;gap:.4rem;align-items:flex-start;margin-bottom:.3rem}
+.leader-card{border:2px solid var(--gold2)!important}
+
+/* ── TURN INDICATOR ── */
+.turn-banner{background:linear-gradient(90deg,transparent,rgba(200,150,20,.2),transparent);border-top:1px solid var(--gold);border-bottom:1px solid var(--gold);padding:.25rem;text-align:center;font-family:'Cinzel',serif;font-size:.75rem;color:var(--gold2);letter-spacing:.15em;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.7}}
+
+/* ── WIN SCREEN ── */
+#win-screen{background:radial-gradient(ellipse at center,rgba(100,70,10,.4) 0%,var(--bg) 70%)}
+.win-title{font-family:'Cinzel Decorative',cursive;font-size:3rem;color:var(--gold2);text-shadow:0 0 40px rgba(200,150,20,.8);animation:winPulse 1.5s infinite alternate}
+@keyframes winPulse{from{text-shadow:0 0 20px rgba(200,150,20,.6)}to{text-shadow:0 0 60px rgba(200,150,20,1),0 0 100px rgba(200,100,10,.4)}}
+
+/* ── CHALLENGE BANNER ── */
+.challenge-flash{position:fixed;inset:0;background:rgba(150,20,20,.7);z-index:150;display:flex;align-items:center;justify-content:center;animation:flashIn .3s ease}
+.challenge-flash.hidden{display:none}
+@keyframes flashIn{from{opacity:0;transform:scale(1.1)}to{opacity:1;transform:scale(1)}}
+.challenge-text{font-family:'Cinzel Decorative',cursive;font-size:3rem;color:#ff6060;text-shadow:0 0 30px rgba(255,60,60,.8)}
+
+/* ── LOADING ── */
+.loading{display:flex;align-items:center;gap:.5rem;font-family:'Cinzel',serif;font-size:.8rem;color:var(--text2);letter-spacing:.1em}
+.loading-dot{width:6px;height:6px;border-radius:50%;background:var(--gold);animation:loadDot 1.2s infinite}
+.loading-dot:nth-child(2){animation-delay:.2s}
+.loading-dot:nth-child(3){animation-delay:.4s}
+@keyframes loadDot{0%,80%,100%{opacity:.2;transform:scale(0.8)}40%{opacity:1;transform:scale(1)}}
+
+/* ── DIVIDER ── */
+.divider{border:none;border-top:1px solid rgba(100,70,20,.3);margin:.8rem 0}
+.divider-label{text-align:center;font-family:'Cinzel',serif;font-size:.65rem;color:var(--dim);letter-spacing:.2em;text-transform:uppercase;margin:.6rem 0;position:relative}
+.divider-label::before,.divider-label::after{content:'';position:absolute;top:50%;width:30%;border-top:1px solid rgba(100,70,20,.3)}
+.divider-label::before{left:0}.divider-label::after{right:0}
+
+/* ── RESPONSIVE ── */
+@media(max-width:600px){
+  :root{--card-w:72px;--card-h:101px;--card-w-lg:96px;--card-h-lg:135px}
+  .game-log{display:none}
+  .monster-col{width:120px}
+}
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════
+     SCREEN 1: NAME ENTRY
+     ════════════════════════════════════════ -->
+<div id="name-screen" class="screen">
+  <div class="game-title">Hero Party</div>
+  <div class="game-sub">by Chummy Games</div>
+  <div class="panel">
+    <div class="field">
+      <label>Your Adventurer Name</label>
+      <input id="name-input" type="text" maxlength="20" placeholder="e.g. Sir Fluffington" autocomplete="off">
+    </div>
+    <button class="btn btn-gold btn-full" id="name-confirm-btn">Enter the Realm</button>
+    <div class="divider-label">or</div>
+    <button class="btn btn-dark btn-full" id="already-in-btn">I Was Already In a Game</button>
+    <div id="name-msg"></div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════
+     SCREEN 1b: DEVICE RECOVERY
+     ════════════════════════════════════════ -->
+<div id="recovery-screen" class="screen hidden">
+  <div class="game-title">Hero Party</div>
+  <div class="game-sub">Device Recovery</div>
+  <div class="panel">
+    <p style="font-size:.85rem;color:var(--text2);margin-bottom:1rem;line-height:1.5">Enter the name you used before. Your new device ID will be saved so you can rejoin your room.</p>
+    <div class="field">
+      <label>Your Adventurer Name</label>
+      <input id="recovery-name" type="text" maxlength="20" placeholder="Your previous name" autocomplete="off">
+    </div>
+    <button class="btn btn-gold btn-full" id="recovery-confirm-btn">Reclaim My Identity</button>
+    <button class="btn btn-dark btn-full" id="recovery-back-btn">← Back</button>
+    <div id="recovery-msg"></div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════
+     SCREEN 2: LOBBY
+     ════════════════════════════════════════ -->
+<div id="lobby-screen" class="screen hidden">
+  <div class="game-title">Hero Party</div>
+  <div class="game-sub">The Tavern</div>
+  <div class="panel">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+      <span style="font-family:'Cinzel',serif;font-size:.75rem;color:var(--text2)">Playing as: <span id="lobby-player-name" style="color:var(--gold2)"></span></span>
+      <button class="btn btn-dark" id="change-name-btn" style="padding:.25rem .6rem;font-size:.65rem">Change Name</button>
+    </div>
+
+    <button class="btn btn-gold btn-full" id="create-room-btn">⚔ Create New Room</button>
+
+    <div class="divider-label">Join a Room</div>
+
+    <div id="room-list-container">
+      <div class="loading"><div class="loading-dot"></div><div class="loading-dot"></div><div class="loading-dot"></div><span>Searching for rooms...</span></div>
+    </div>
+
+    <div class="field" style="margin-top:.8rem">
+      <label>Room Code (direct join)</label>
+      <div style="display:flex;gap:.4rem">
+        <input id="room-code-input" type="text" maxlength="6" placeholder="XXXXXX" style="text-transform:uppercase;letter-spacing:.15em" autocomplete="off">
+        <button class="btn btn-dark" id="join-code-btn">Join</button>
+      </div>
+    </div>
+    <div id="lobby-msg"></div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════
+     SCREEN 3: WAITING ROOM
+     ════════════════════════════════════════ -->
+<div id="waiting-screen" class="screen hidden">
+  <div class="game-title">Hero Party</div>
+  <div class="panel">
+    <div style="text-align:center;margin-bottom:.5rem">
+      <div style="font-family:'Cinzel',serif;font-size:.7rem;color:var(--text2);letter-spacing:.2em">ROOM CODE</div>
+      <div id="waiting-room-code" style="font-family:'Cinzel Decorative',cursive;font-size:2rem;color:var(--gold2);letter-spacing:.2em"></div>
+    </div>
+    <div style="font-family:'Cinzel',serif;font-size:.72rem;color:var(--text2);text-align:center;margin-bottom:.5rem">Share this code with friends!</div>
+    <div id="waiting-players-list" class="waiting-players"></div>
+    <div id="waiting-status" style="font-size:.8rem;color:var(--text2);text-align:center;margin:.5rem 0"></div>
+    <button class="btn btn-gold btn-full" id="start-game-btn" style="display:none">⚔ Start Game</button>
+    <button class="btn btn-dark btn-full" id="leave-room-btn">Leave Room</button>
+    <div id="waiting-msg"></div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════
+     SCREEN 4: GAME
+     ════════════════════════════════════════ -->
+<div id="game-screen" class="screen hidden">
+
+  <!-- TOP BAR -->
+  <div class="game-top">
+    <span class="game-info-pill" id="top-room-code">Room: <span>—</span></span>
+    <span class="game-info-pill" id="top-turn-info">Turn: <span>—</span></span>
+    <span class="game-info-pill" id="top-ap">Action Points: <span id="ap-display">●●●</span></span>
+    <span class="game-info-pill" id="top-deck">Deck: <span id="deck-count">—</span></span>
+    <div style="margin-left:auto;display:flex;gap:.4rem">
+      <button class="btn btn-dark" id="rules-btn" style="padding:.2rem .5rem;font-size:.62rem">Rules</button>
+      <button class="btn btn-dark" id="menu-btn" style="padding:.2rem .5rem;font-size:.62rem">Menu</button>
+    </div>
+  </div>
+
+  <div id="turn-banner" class="turn-banner hidden"></div>
+
+  <div class="game-middle">
+    <!-- MONSTER COLUMN -->
+    <div class="monster-col">
+      <h3>⚔ Monsters</h3>
+      <div id="monster-row"></div>
+      <div style="margin-top:.5rem">
+        <div style="font-family:'Cinzel',serif;font-size:.6rem;color:var(--dim);letter-spacing:.1em;text-transform:uppercase;text-align:center;margin-bottom:.3rem">Discard</div>
+        <div id="discard-pile" class="card card-sm" style="cursor:pointer" title="View discard pile"></div>
+      </div>
+    </div>
+
+    <!-- OPPONENTS -->
+    <div class="opponents-area" id="opponents-area"></div>
+  </div>
+
+  <!-- MY AREA (BOTTOM) -->
+  <div class="game-bottom">
+    <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.2rem">
+      <div class="my-area-label" id="my-area-label">Your Party</div>
+      <div id="my-status-bar" class="status-bar"></div>
+    </div>
+
+    <!-- My party + leader -->
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:flex-start">
+      <div id="my-leader-area" class="leader-area"></div>
+      <div id="my-party" class="party-row"></div>
+      <div class="deck-discard" style="margin-left:auto">
+        <div class="deck-box">
+          <div id="deck-card" class="card card-sm face-down" title="Draw a card" id="draw-btn"></div>
+          <div class="label">Deck (<span id="deck-count2">?</span>)</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Action bar -->
+    <div class="action-bar" id="action-bar">
+      <span class="action-section">Actions:</span>
+      <button class="btn btn-dark" id="draw-action-btn">📖 Draw (1AP)</button>
+      <button class="btn btn-dark" id="play-card-btn">🃏 Play Card (1AP)</button>
+      <button class="btn btn-dark" id="roll-hero-btn">🎲 Roll Hero (1AP)</button>
+      <button class="btn btn-red" id="attack-btn">⚔ Attack Monster (2AP)</button>
+      <button class="btn btn-dark" id="redraw-btn">♻ Redraw Hand (3AP)</button>
+      <button class="btn btn-gold" id="end-turn-btn">End Turn →</button>
+    </div>
+
+    <!-- Hand -->
+    <div>
+      <div class="hand-label">Hand (<span id="hand-count">0</span> cards)</div>
+      <div id="my-hand" class="hand-area"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════
+     GAME LOG
+     ════════════════════════════════════════ -->
+<div id="game-log" class="game-log hidden">
+  <div class="log-toggle" id="log-toggle">📜 <span id="log-label">Log</span></div>
+  <div id="log-entries"></div>
+</div>
+
+<!-- ════════════════════════════════════════
+     WIN SCREEN
+     ════════════════════════════════════════ -->
+<div id="win-screen" class="screen hidden">
+  <div class="win-title">Victory!</div>
+  <div style="font-family:'Cinzel',serif;font-size:1.2rem;color:var(--text);margin:1rem 0" id="win-player-name"></div>
+  <div style="font-family:'IM Fell English',serif;font-size:.9rem;color:var(--text2);margin-bottom:2rem" id="win-reason"></div>
+  <button class="btn btn-gold" id="back-to-lobby-btn">Return to Tavern</button>
+</div>
+
+<!-- ════════════════════════════════════════
+     MODALS
+     ════════════════════════════════════════ -->
+
+<!-- Card Selection Modal -->
+<div id="card-select-modal" class="modal-overlay hidden">
+  <div class="modal">
+    <h2 id="modal-title">Select a Card</h2>
+    <p id="modal-desc" style="font-size:.82rem;color:var(--text2);margin-bottom:.8rem;line-height:1.4"></p>
+    <div id="modal-cards-container" class="modal-cards"></div>
+    <div id="modal-player-list" style="margin-top:.5rem"></div>
+    <div class="modal-btns">
+      <button class="btn btn-dark" id="modal-cancel-btn">Cancel</button>
+      <button class="btn btn-gold" id="modal-confirm-btn" disabled>Confirm</button>
+    </div>
+    <div id="modal-msg"></div>
+  </div>
+</div>
+
+<!-- Dice Roll Modal -->
+<div id="dice-modal" class="modal-overlay hidden">
+  <div class="modal" style="max-width:380px;text-align:center">
+    <h2 id="dice-modal-title">Rolling...</h2>
+    <div id="dice-display" class="dice-display">🎲</div>
+    <div id="dice-result" class="dice-result"></div>
+    <div id="dice-breakdown" class="dice-breakdown"></div>
+    <div id="dice-outcome" style="font-family:'Cinzel',serif;font-size:.9rem;margin-top:.8rem;padding:.5rem;border-radius:4px"></div>
+    <div id="modifier-wait" style="font-size:.78rem;color:var(--text2);margin:.5rem 0;display:none">Waiting for modifier cards...</div>
+    <div class="modal-btns" style="justify-content:center">
+      <button class="btn btn-dark" id="dice-modifier-btn" style="display:none">Play Modifier</button>
+      <button class="btn btn-gold" id="dice-close-btn" style="display:none">Continue</button>
+    </div>
+  </div>
+</div>
+
+<!-- Discard Pile Viewer -->
+<div id="discard-modal" class="modal-overlay hidden">
+  <div class="modal">
+    <h2>Discard Pile</h2>
+    <div id="discard-modal-cards" class="modal-cards"></div>
+    <div class="modal-btns">
+      <button class="btn btn-dark" id="discard-close-btn">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Challenge Modal -->
+<div id="challenge-flash" class="challenge-flash hidden">
+  <div>
+    <div class="challenge-text">CHALLENGE!</div>
+    <div style="font-family:'Cinzel',serif;color:#fff;font-size:1rem;text-align:center;margin:.5rem 0" id="challenge-info"></div>
+    <div style="display:flex;gap:1rem;justify-content:center;margin-top:1rem">
+      <button class="btn btn-red" id="challenge-respond-btn" style="display:none">Roll to Defend</button>
+      <button class="btn btn-dark" id="challenge-watch-btn">Watch</button>
+    </div>
+  </div>
+</div>
+
+<!-- Rules Modal -->
+<div id="rules-modal" class="modal-overlay hidden">
+  <div class="modal" style="max-width:700px">
+    <h2>How to Play</h2>
+    <div style="font-size:.82rem;line-height:1.6;color:var(--text2)">
+      <h3>On Your Turn</h3>
+      <p>You get <strong style="color:var(--gold2)">3 Action Points</strong> per turn.</p>
+      <ul style="margin:.4rem 0 .8rem 1rem">
+        <li><strong>1 AP:</strong> Draw a card from the deck</li>
+        <li><strong>1 AP:</strong> Play a Hero, Item, or Magic card from your hand (Hero: may roll immediately)</li>
+        <li><strong>1 AP:</strong> Roll to use a Hero card's effect in your Party (once per Hero per turn)</li>
+        <li><strong>2 AP:</strong> Attack a Monster card</li>
+        <li><strong>3 AP:</strong> Discard your hand and draw 5 new cards</li>
+      </ul>
+      <h3>Winning</h3>
+      <p>First to collect <strong style="color:var(--gold2)">3 Monsters</strong> OR have <strong style="color:var(--gold2)">6 different Hero class cards</strong> in your Party wins!</p>
+      <h3>Attacking Monsters</h3>
+      <p>Check the Monster card for required Hero types. Roll the dice – if you meet/beat the win threshold, SLAY it. If you meet/beat the lose threshold, suffer the penalty.</p>
+      <h3>Challenges</h3>
+      <p>Any player may play a CHALLENGE card when you play a Hero, Item, or Magic card. Both players roll – higher roll wins. Loser's card is cancelled / challenger discards.</p>
+      <h3>Keywords</h3>
+      <ul style="margin:.3rem 0 0 1rem">
+        <li><strong>DRAW</strong> – Take from the top of the deck</li>
+        <li><strong>DISCARD</strong> – Move to discard pile</li>
+        <li><strong>STEAL</strong> – Take a Hero from another party to yours</li>
+        <li><strong>DESTROY</strong> – Move a Hero to the discard pile</li>
+        <li><strong>SACRIFICE</strong> – Move one of YOUR Heroes to the discard pile</li>
+        <li><strong>SLAY</strong> – Remove a Monster from the row and add to your collection</li>
+      </ul>
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-gold" id="rules-close-btn">Got It!</button>
+    </div>
+  </div>
+</div>
+
+<!-- Tooltip -->
+<div id="tooltip" class="tooltip hidden">
+  <div id="tooltip-name" class="tooltip-name"></div>
+  <div id="tooltip-type" class="tooltip-type"></div>
+  <div id="tooltip-roll" class="tooltip-roll"></div>
+  <div id="tooltip-effect" class="tooltip-effect"></div>
+</div>
+
+<!-- ════════════════════════════════════════
+     FIREBASE + GAME JS
+     ════════════════════════════════════════ -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, set, get, onValue, off, update, push, remove, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+// ── FIREBASE CONFIG ──
+const app = initializeApp({
+  apiKey: "AIzaSyDVbt_8GuRuHJRPAN7jFXbs_lJUfUHNxHE",
+  authDomain: "chummy-games.firebaseapp.com",
+  databaseURL: "https://chummy-games-default-rtdb.firebaseio.com",
+  projectId: "chummy-games",
+  storageBucket: "chummy-games.firebasestorage.app",
+  messagingSenderId: "869241598273",
+  appId: "1:869241598273:web:d97492b7308f785c37f1c0"
+});
+const db = getDatabase(app);
+
+// ── PCID ──
+function getOrCreatePCID() {
+  const key = 'ChummyGames-PC-ID';
+  let id = localStorage.getItem(key);
+  if (!id || id.length !== 12) { id = generateCode(12); localStorage.setItem(key, id); }
+  return id;
+}
+function generateCode(length) {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  return Array.from({length}, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+}
+
+const MY_PCID = getOrCreatePCID();
+let myName = '';
+let myRoom = '';
+let roomListener = null;
+let isHost = false;
+let gameState = null;
+let selectedCards = [];
+let pendingAction = null;
+
+// ════════════════════════════════════════
+// CARD DATA
+// ════════════════════════════════════════
+const CARDS = {
+  cursedItems: [
+    {id:'ci1', name:"Curse of the Snake's Eyes", type:'Cursed Item', effect:"Each time you roll to use the equipped Hero card's effect, -2 to your roll.", qty:2},
+    {id:'ci2', name:"Sealing Key", type:'Cursed Item', effect:"You cannot use the equipped Hero card's effect.", qty:1},
+    {id:'ci3', name:"Suspiciously Shiny Coin", type:'Cursed Item', effect:"If you successfully roll to use the equipped Hero card's effect, DISCARD a card.", qty:1},
+  ],
+  heroes: [
+    // Bard
+    {id:'hb1',name:'Dodgy Dealer',type:'Hero: Bard',roll:9,effect:'Trade hands with another player.',qty:1},
+    {id:'hb2',name:'Fuzzy Cheeks',type:'Hero: Bard',roll:8,effect:'DRAW a card and play a Hero card from your hand immediately.',qty:1},
+    {id:'hb3',name:'Greedy Cheeks',type:'Hero: Bard',roll:8,effect:'Each other player must give you a card from their hand.',qty:1},
+    {id:'hb4',name:'Lucky Bucky',type:'Hero: Bard',roll:7,effect:"Pull a card from another player's hand. If that card is a Hero card, you may play it immediately.",qty:1},
+    {id:'hb5',name:'Mellow Dee',type:'Hero: Bard',roll:7,effect:'DRAW a card. If that card is a Hero card, you may play it immediately.',qty:1},
+    {id:'hb6',name:'Napping Nibbles',type:'Hero: Bard',roll:2,effect:'Do nothing.',qty:1},
+    {id:'hb7',name:'Peanut',type:'Hero: Bard',roll:7,effect:'DRAW 2 cards.',qty:1},
+    {id:'hb8',name:'Tipsy Tootie',type:'Hero: Bard',roll:6,effect:"Choose a player. STEAL a Hero card from that player's Party and move Tipsy Tootie to that player's Party.",qty:1},
+    // Fighter
+    {id:'hf1',name:'Bad Axe',type:'Hero: Fighter',roll:8,effect:'DESTROY a Hero card.',qty:1},
+    {id:'hf2',name:'Bear Claw',type:'Hero: Fighter',roll:7,effect:"Pull a card from another player's hand. If it is a Hero card, pull a second card from that player's hand.",qty:1},
+    {id:'hf3',name:'Beary Wise',type:'Hero: Fighter',roll:7,effect:'Each other player must DISCARD a card. Choose one of the discarded cards and add it to your hand.',qty:1},
+    {id:'hf4',name:'Fury Knuckle',type:'Hero: Fighter',roll:5,effect:"Pull a card from another player's hand. If it is a Challenge card, pull a second card from that player's hand.",qty:1},
+    {id:'hf5',name:'Heavy Bear',type:'Hero: Fighter',roll:5,effect:'Choose a player. That player must DISCARD 2 cards.',qty:1},
+    {id:'hf6',name:'Pan Chucks',type:'Hero: Fighter',roll:8,effect:'DRAW 2 cards. If at least one of those cards is a Challenge card, you may reveal it, then DESTROY a Hero card.',qty:1},
+    {id:'hf7',name:'Qi Bear',type:'Hero: Fighter',roll:10,effect:'DISCARD up to 3 cards. For each card discarded, DESTROY a Hero card.',qty:1},
+    {id:'hf8',name:'Tough Teddy',type:'Hero: Fighter',roll:4,effect:'Each other player with a Fighter in their Party must DISCARD a card.',qty:1},
+    // Guardian
+    {id:'hg1',name:'Calming Voice',type:'Hero: Guardian',roll:9,effect:"Hero cards in your Party cannot be stolen until your next turn.",qty:1},
+    {id:'hg2',name:'Guiding Light',type:'Hero: Guardian',roll:7,effect:'Search the discard pile for a Hero card and add it to your hand.',qty:1},
+    {id:'hg3',name:'Holy Curselifter',type:'Hero: Guardian',roll:5,effect:"Return a Cursed Item card equipped to a Hero card in your Party to your hand.",qty:1},
+    {id:'hg4',name:'Iron Resolve',type:'Hero: Guardian',roll:8,effect:"Cards you play cannot be challenged for the rest of your turn.",qty:1},
+    {id:'hg5',name:'Mighty Blade',type:'Hero: Guardian',roll:8,effect:"Hero cards in your Party cannot be destroyed until your next turn.",qty:1},
+    {id:'hg6',name:'Radiant Horn',type:'Hero: Guardian',roll:6,effect:'Search the discard pile for a Modifier card and add it to your hand.',qty:1},
+    {id:'hg7',name:'Vibrant Glow',type:'Hero: Guardian',roll:9,effect:'+5 to all of your rolls until the end of your turn.',qty:1},
+    {id:'hg8',name:'Wise Shield',type:'Hero: Guardian',roll:6,effect:'+3 to all of your rolls until the end of your turn.',qty:1},
+    // Ranger
+    {id:'hr1',name:'Bullseye',type:'Hero: Ranger',roll:7,effect:'Look at the top 3 cards of the deck. Add one to your hand, then return the other two to the top of the deck in any order.',qty:1},
+    {id:'hr2',name:'Hook',type:'Hero: Ranger',roll:6,effect:'Play an Item card from your hand immediately and DRAW a card.',qty:1},
+    {id:'hr3',name:'Lookie Rookie',type:'Hero: Ranger',roll:5,effect:'Search the discard pile for an Item card and add it to your hand.',qty:1},
+    {id:'hr4',name:'Quick Draw',type:'Hero: Ranger',roll:8,effect:'DRAW 2 cards. If at least one of those cards is an Item card, you may play one of them immediately.',qty:1},
+    {id:'hr5',name:'Serious Grey',type:'Hero: Ranger',roll:9,effect:'DESTROY a Hero card and DRAW a card.',qty:1},
+    {id:'hr6',name:'Sharp Fox',type:'Hero: Ranger',roll:5,effect:"Look at another player's hand.",qty:1},
+    {id:'hr7',name:'Wildshot',type:'Hero: Ranger',roll:8,effect:'DRAW 3 cards and DISCARD a card.',qty:1},
+    {id:'hr8',name:'Wily Red',type:'Hero: Ranger',roll:10,effect:'DRAW cards until you have 7 cards in your hand.',qty:1},
+    // Thief
+    {id:'ht1',name:'Kit Napper',type:'Hero: Thief',roll:9,effect:'STEAL a Hero card.',qty:1},
+    {id:'ht2',name:'Meowzio',type:'Hero: Thief',roll:10,effect:"Choose a player. STEAL a Hero card from that player's Party and pull a card from that player's hand.",qty:1},
+    {id:'ht3',name:'Plundering Puma',type:'Hero: Thief',roll:6,effect:"Pull 2 cards from another player's hand. That player may DRAW a card.",qty:1},
+    {id:'ht4',name:'Shurikitty',type:'Hero: Thief',roll:9,effect:'DESTROY a Hero card. If that Hero card had an Item card equipped to it, add that Item card to your hand instead of moving it to the discard pile.',qty:1},
+    {id:'ht5',name:'Silent Shadow',type:'Hero: Thief',roll:8,effect:"Look at another player's hand. Choose a card and add it to your hand.",qty:1},
+    {id:'ht6',name:'Slippery Paws',type:'Hero: Thief',roll:6,effect:"Pull 2 cards from another player's hand, then DISCARD one of those cards.",qty:1},
+    {id:'ht7',name:'Sly Pickings',type:'Hero: Thief',roll:6,effect:"Pull a card from another player's hand. If that card is an Item card, you may play it immediately.",qty:1},
+    {id:'ht8',name:'Smooth Mimimeow',type:'Hero: Thief',roll:7,effect:"Pull a card from the hand of each other player with a Thief in their Party.",qty:1},
+    // Wizard
+    {id:'hw1',name:'Bun Bun',type:'Hero: Wizard',roll:5,effect:'Search the discard pile for a Magic card and add it to your hand.',qty:1},
+    {id:'hw2',name:'Buttons',type:'Hero: Wizard',roll:6,effect:"Pull a card from another player's hand. If it is a Magic card, you may play it immediately.",qty:1},
+    {id:'hw3',name:'Fluffy',type:'Hero: Wizard',roll:10,effect:'DESTROY 2 Hero cards.',qty:1},
+    {id:'hw4',name:'Hopper',type:'Hero: Wizard',roll:7,effect:'Choose a player. That player must SACRIFICE a Hero card.',qty:1},
+    {id:'hw5',name:'Snowball',type:'Hero: Wizard',roll:6,effect:'DRAW a card. If it is a Magic card, you may play it immediately and DRAW a second card.',qty:1},
+    {id:'hw6',name:'Spooky',type:'Hero: Wizard',roll:10,effect:'Each other player must SACRIFICE a Hero card.',qty:1},
+    {id:'hw7',name:'Whiskers',type:'Hero: Wizard',roll:11,effect:'STEAL a Hero card and DESTROY a Hero card.',qty:1},
+    {id:'hw8',name:'Wiggles',type:'Hero: Wizard',roll:10,effect:'STEAL a Hero card and roll to use its effect immediately.',qty:1},
+  ],
+  items: [
+    {id:'it1',name:'Bard Mask',type:'Item',effect:'The equipped Hero card is considered a Bard instead of its original class.',qty:1},
+    {id:'it2',name:'Decoy Doll',type:'Item',effect:'If the equipped Hero card would be sacrificed or destroyed, move Decoy Doll to the discard pile instead.',qty:1},
+    {id:'it3',name:'Fighter Mask',type:'Item',effect:'The equipped Hero card is considered a Fighter instead of its original class.',qty:1},
+    {id:'it4',name:'Guardian Mask',type:'Item',effect:'The equipped Hero card is considered a Guardian instead of its original class.',qty:1},
+    {id:'it5',name:'Particularly Rusty Coin',type:'Item',effect:"If you unsuccessfully roll to use the equipped Hero card's effect, DRAW a card.",qty:2},
+    {id:'it6',name:'Ranger Mask',type:'Item',effect:'The equipped Hero card is considered a Ranger instead of its original class.',qty:1},
+    {id:'it7',name:'Really Big Ring',type:'Item',effect:"Each time you roll to use the equipped Hero card's effect, +2 to your roll.",qty:2},
+    {id:'it8',name:'Thief Mask',type:'Item',effect:'The equipped Hero card is considered a Thief instead of its original class.',qty:1},
+    {id:'it9',name:'Wizard Mask',type:'Item',effect:'The equipped Hero card is considered a Wizard instead of its original class.',qty:1},
+  ],
+  magic: [
+    {id:'mg1',name:'Call to the Fallen',type:'Magic',effect:'Search the discard pile for a Hero card and add it to your hand.',qty:1},
+    {id:'mg2',name:'Critical Boost',type:'Magic',effect:'DRAW 3 cards and DISCARD a card.',qty:2},
+    {id:'mg3',name:'Destructive Spell',type:'Magic',effect:'DISCARD a card, then DESTROY a Hero card.',qty:2},
+    {id:'mg4',name:'Enchanted Spell',type:'Magic',effect:'+2 to all of your rolls until the end of your turn.',qty:2},
+    {id:'mg5',name:'Entangling Trap',type:'Magic',effect:'DISCARD 2 cards, then STEAL a Hero card.',qty:2},
+    {id:'mg6',name:'Forced Exchange',type:'Magic',effect:"Choose a player. STEAL a Hero card from that player's Party, then move a Hero card from your Party to that player's Party.",qty:1},
+    {id:'mg7',name:'Forceful Winds',type:'Magic',effect:"Return every equipped Item card to its respective player's hand.",qty:1},
+    {id:'mg8',name:'Winds of Change',type:'Magic',effect:"Return an Item card equipped to any player's Hero card to that player's hand, then DRAW a card.",qty:2},
+  ],
+  modifiers: [
+    {id:'mod1',name:'MODIFIER 0i4',type:'Modifier',effect:'Play this card after any player (including you) rolls the dice. -4 to that roll.',bonus:4,penalty:-4,qty:4},
+    {id:'mod2',name:'MODIFIER 1i3',type:'Modifier',effect:'Play this card after any player (including you) rolls the dice. +1 or -3 to that roll.',bonus:1,penalty:-3,qty:4},
+    {id:'mod3',name:'MODIFIER 2i2',type:'Modifier',effect:'Play this card after any player (including you) rolls the dice. +2 or -2 to that roll.',bonus:2,penalty:-2,qty:9},
+    {id:'mod4',name:'MODIFIER 3i1',type:'Modifier',effect:'Play this card after any player (including you) rolls the dice. +3 or -1 to that roll.',bonus:3,penalty:-1,qty:4},
+    {id:'mod5',name:'MODIFIER 4i0',type:'Modifier',effect:'Play this card after any player (including you) rolls the dice. +4 to that roll.',bonus:4,penalty:0,qty:4},
+  ],
+  challenges: [
+    {id:'ch1',name:'CHALLENGE',type:'Challenge',effect:'You may play this card when another player attempts to play a Hero, Item, or Magic card. CHALLENGE that card.',qty:14},
+  ],
+  monsters: [
+    {id:'mn1',name:'Abyss Queen',type:'Monster',require:'HH',loseRoll:5,loseEffect:'SACRIFICE a Hero card',winRoll:8,winEffect:'SLAY this Monster card',passiveEffect:"Each time another player plays a Modifier card on one of your rolls, +1 to your roll."},
+    {id:'mn2',name:'Anuran Cauldron',type:'Monster',require:'HHH',loseRoll:6,loseEffect:'SACRIFICE a Hero card',winRoll:7,winEffect:'SLAY this Monster card',passiveEffect:'Each time you roll, +1 to your roll.'},
+    {id:'mn3',name:'Arctic Aries',type:'Monster',require:'H',loseRoll:6,loseEffect:'SACRIFICE a Hero card',winRoll:10,winEffect:'SLAY this Monster card',passiveEffect:'Each time you successfully roll to use a Hero card\'s effect, you may DRAW a card.'},
+    {id:'mn4',name:'Bloodwing',type:'Monster',require:'HH',loseRoll:6,loseEffect:'SACRIFICE a Hero card',winRoll:9,winEffect:'SLAY this Monster card',passiveEffect:'Each time another player CHALLENGES you, that player must DISCARD a card.'},
+    {id:'mn5',name:'Corrupted Sabretooth',type:'Monster',require:'HHH',loseRoll:6,loseEffect:'SACRIFICE a Hero card',winRoll:9,winEffect:'SLAY this Monster card & DRAW a card',passiveEffect:'Each time you would DESTROY a Hero card, you may STEAL that Hero card instead.'},
+    {id:'mn6',name:'Crowned Serpent',type:'Monster',require:'HH',loseRoll:7,loseEffect:'SACRIFICE a Hero card',winRoll:10,winEffect:'SLAY this Monster card',passiveEffect:'Each time any player (including you) plays a Modifier card, you may DRAW a card.'},
+    {id:'mn7',name:'Dark Dragon King',type:'Monster',require:'BH',loseRoll:4,loseEffect:'DISCARD 2 cards',winRoll:8,winEffect:'SLAY this Monster card',passiveEffect:"Each time you roll for a Hero card's effect, +1 to your roll."},
+    {id:'mn8',name:'Dracos',type:'Monster',require:'H',loseRoll:5,loseEffect:'SLAY this Monster card',winRoll:8,winEffect:'SACRIFICE a Hero card',passiveEffect:'Each time a Hero card in your Party is destroyed, you may DRAW a card.'},
+    {id:'mn9',name:'Malamammoth',type:'Monster',require:'RH',loseRoll:4,loseEffect:'DISCARD 2 cards',winRoll:8,winEffect:'SLAY this Monster card',passiveEffect:'Each time you DRAW an Item card, you may play it immediately.'},
+    {id:'mn10',name:'Mega Slime',type:'Monster',require:'HHHH',loseRoll:7,loseEffect:'SACRIFICE a Hero card',winRoll:8,winEffect:'SLAY this Monster card & DRAW 2 cards',passiveEffect:'You may spend an extra action point on each of your turns.'},
+    {id:'mn11',name:'Orthus',type:'Monster',require:'WH',loseRoll:4,loseEffect:'DISCARD 2 cards',winRoll:8,winEffect:'SLAY this Monster card',passiveEffect:'Each time you DRAW a Magic card, you may play it immediately.'},
+    {id:'mn12',name:'Rex Major',type:'Monster',require:'GH',loseRoll:4,loseEffect:'DISCARD 2 cards',winRoll:8,winEffect:'SLAY this Monster card',passiveEffect:'Each time you DRAW a Modifier card, you may reveal it and DRAW a second card.'},
+    {id:'mn13',name:'Terratuga',type:'Monster',require:'H',loseRoll:7,loseEffect:'SACRIFICE a Hero card',winRoll:11,winEffect:'SLAY this Monster card',passiveEffect:'Your Hero cards cannot be destroyed.'},
+    {id:'mn14',name:'Titan Wyvern',type:'Monster',require:'FH',loseRoll:4,loseEffect:'DISCARD 2 cards',winRoll:8,winEffect:'SLAY this Monster card',passiveEffect:'Each time you roll for a Challenge card, +1 to your roll.'},
+    {id:'mn15',name:'Warworn Owlbear',type:'Monster',require:'TH',loseRoll:4,loseEffect:'DISCARD 2 cards',winRoll:8,winEffect:'SLAY this Monster card',passiveEffect:'Item cards you play cannot be challenged.'},
+  ],
+  partyLeaders: [
+    {id:'pl1',name:'The Charismatic Song',type:'Party Leader: Bard',effect:"Each time you roll to use a Hero card's effect, +1 to your roll."},
+    {id:'pl2',name:'The Cloaked Sage',type:'Party Leader: Wizard',effect:'Each time you play a Magic card, DRAW a card.'},
+    {id:'pl3',name:'The Divine Arrow',type:'Party Leader: Ranger',effect:'Each time you roll to ATTACK a Monster card, +1 to your roll.'},
+    {id:'pl4',name:'The Fist of Reason',type:'Party Leader: Fighter',effect:'Each time you roll to CHALLENGE, +2 to your roll.'},
+    {id:'pl5',name:'The Protecting Horn',type:'Party Leader: Guardian',effect:'Each time you play a Modifier card on a roll, +1 or -1 to that roll.'},
+    {id:'pl6',name:'The Shadow Claw',type:'Party Leader: Thief',effect:"Once per turn on your turn, you may spend an action point to pull a card from another player's hand."},
+  ]
+};
+
+// ── IMAGE MAPPING ──
+function cardImage(card) {
+  if (!card) return 'images/Card_Back.png';
+  const n = card.name.replace(/ /g,'_').replace(/'/g,"'");
+  const t = card.type;
+  if (t === 'Cursed Item') return `images/Cursed_Items/${n}.png`;
+  if (t === 'Hero: Bard') return `images/Hero-Bard/${n}.png`;
+  if (t === 'Hero: Fighter') return `images/Hero-Fighter/${n}.png`;
+  if (t === 'Hero: Guardian') return `images/Hero-Guardian/${n}.png`;
+  if (t === 'Hero: Ranger') return `images/Hero-Ranger/${n}.png`;
+  if (t === 'Hero: Thief') return `images/Hero-Thief/${n}.png`;
+  if (t === 'Hero: Wizard') return `images/Hero-Wizard/${n}.png`;
+  if (t === 'Item') return `images/Items/${n}.png`;
+  if (t === 'Magic') return `images/Magic/${n}.png`;
+  if (t === 'Modifier') {
+    const key = n.replace('MODIFIER_','Modifier_');
+    return `images/Modifiers/${key}.png`;
+  }
+  if (t === 'Monster') {
+    // Special cases
+    if (card.name === 'Arctic Aries') return 'images/Monster/Artic_Aries.png';
+    return `images/Monster/${n}.png`;
+  }
+  if (t === 'Challenge') return 'images/Other/Challenge.png';
+  if (t.startsWith('Party Leader')) return `images/Party_Leader/${n}.png`;
+  return 'images/Card_Back.png';
+}
+
+// ── BUILD DECK ──
+function buildMainDeck() {
+  const deck = [];
+  let uid = 0;
+  const addCards = (arr) => arr.forEach(c => {
+    for (let i = 0; i < c.qty; i++) {
+      deck.push({...c, uid: `${c.id}_${uid++}`});
+    }
+  });
+  addCards(CARDS.cursedItems);
+  addCards(CARDS.heroes);
+  addCards(CARDS.items);
+  addCards(CARDS.magic);
+  addCards(CARDS.modifiers);
+  addCards(CARDS.challenges);
+  return shuffle(deck);
+}
+
+function buildMonsterDeck() {
+  return shuffle(CARDS.monsters.map((c,i) => ({...c, uid:`mn_${i}`})));
+}
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// ════════════════════════════════════════
+// UI UTILITIES
+// ════════════════════════════════════════
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+  const el = document.getElementById(id);
+  if (el) { el.classList.remove('hidden'); }
+}
+function setMsg(id, text, type='error') {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.className = `msg msg-${type}`;
+  el.textContent = text;
+  el.style.display = text ? '' : 'none';
+}
+function clearMsg(id) { setMsg(id,'',''); }
+
+// ── TOOLTIP ──
+const tooltip = document.getElementById('tooltip');
+document.addEventListener('mousemove', e => {
+  if (!tooltip.classList.contains('hidden')) {
+    let x = e.clientX + 14, y = e.clientY - 10;
+    if (x + 250 > window.innerWidth) x = e.clientX - 260;
+    if (y + 160 > window.innerHeight) y = e.clientY - 160;
+    tooltip.style.left = x + 'px';
+    tooltip.style.top = y + 'px';
+  }
+});
+function showTooltip(card) {
+  if (!card) return;
+  document.getElementById('tooltip-name').textContent = card.name;
+  document.getElementById('tooltip-type').textContent = card.type;
+  document.getElementById('tooltip-roll').textContent = card.roll ? `Roll: ${card.roll}+` : '';
+  document.getElementById('tooltip-effect').textContent = card.effect || card.passiveEffect || '';
+  tooltip.classList.remove('hidden');
+}
+function hideTooltip() { tooltip.classList.add('hidden'); }
+
+function makeCardEl(card, opts={}) {
+  const el = document.createElement('div');
+  el.className = 'card' + (opts.sm ? ' card-sm' : '') + (opts.lg ? ' card-lg' : '') + (opts.selected ? ' selected' : '');
+  const img = document.createElement('img');
+  img.src = cardImage(card);
+  img.alt = card.name;
+  img.onerror = () => { img.src = card.type === 'Monster' ? 'images/Monster_Card_Back.png' : 'images/Card_Back.png'; };
+  el.appendChild(img);
+  el.dataset.uid = card.uid || card.id;
+  el.addEventListener('mouseenter', () => showTooltip(card));
+  el.addEventListener('mouseleave', hideTooltip);
+  if (opts.onClick) el.addEventListener('click', opts.onClick);
+  return el;
+}
+
+// ════════════════════════════════════════
+// SCREEN 1: NAME
+// ════════════════════════════════════════
+showScreen('name-screen');
+document.getElementById('name-confirm-btn').addEventListener('click', confirmName);
+document.getElementById('name-input').addEventListener('keydown', e => { if (e.key === 'Enter') confirmName(); });
+document.getElementById('already-in-btn').addEventListener('click', () => showScreen('recovery-screen'));
+document.getElementById('recovery-back-btn').addEventListener('click', () => showScreen('name-screen'));
+document.getElementById('recovery-confirm-btn').addEventListener('click', handleRecovery);
+document.getElementById('recovery-name').addEventListener('keydown', e => { if (e.key === 'Enter') handleRecovery(); });
+
+async function confirmName() {
+  const raw = document.getElementById('name-input').value.trim();
+  if (!raw || raw.length < 2) { setMsg('name-msg','Name must be at least 2 characters.'); return; }
+  const name = raw;
+  clearMsg('name-msg');
+  const btn = document.getElementById('name-confirm-btn');
+  btn.disabled = true; btn.textContent = 'Checking...';
+
+  try {
+    const snap = await get(ref(db, `hp_names/${name}`));
+    if (snap.exists()) {
+      const data = snap.val();
+      if (data.pcid !== MY_PCID) {
+        setMsg('name-msg', 'That name is taken by another player. Choose another!');
+        btn.disabled = false; btn.textContent = 'Enter the Realm';
+        return;
+      }
+    }
+    // Register / update name
+    await set(ref(db, `hp_names/${name}`), { pcid: MY_PCID, lastSeen: Date.now() });
+    // Also register the PCID
+    await set(ref(db, `hp_players/${MY_PCID}`), { name, pcid: MY_PCID, lastSeen: Date.now() });
+    myName = name;
+    enterLobby();
+  } catch(e) {
+    setMsg('name-msg', 'Connection error. Check your internet.');
+    console.error(e);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Enter the Realm';
+  }
+}
+
+async function handleRecovery() {
+  const name = document.getElementById('recovery-name').value.trim();
+  if (!name) { setMsg('recovery-msg','Enter your adventurer name.'); return; }
+  const btn = document.getElementById('recovery-confirm-btn');
+  btn.disabled = true; btn.textContent = 'Searching...';
+  try {
+    const snap = await get(ref(db, `hp_names/${name}`));
+    if (!snap.exists()) { setMsg('recovery-msg','No player found with that name.'); btn.disabled=false;btn.textContent='Reclaim My Identity';return; }
+    const data = snap.val();
+    const oldPCID = data.pcid;
+    // Update name entry and player entry with new PCID
+    await set(ref(db, `hp_names/${name}`), { pcid: MY_PCID, lastSeen: Date.now() });
+    await set(ref(db, `hp_players/${MY_PCID}`), { name, pcid: MY_PCID, lastSeen: Date.now() });
+    // If old PCID is different, note the migration
+    if (oldPCID !== MY_PCID) {
+      await set(ref(db, `hp_migrations/${MY_PCID}`), { oldPCID, name, ts: Date.now() });
+    }
+    myName = name;
+    setMsg('recovery-msg', `Welcome back, ${name}! Your new device is registered.`, 'ok');
+    setTimeout(() => enterLobby(), 1200);
+  } catch(e) {
+    setMsg('recovery-msg','Error. Check connection.'); console.error(e);
+  } finally { btn.disabled=false;btn.textContent='Reclaim My Identity'; }
+}
+
+// ════════════════════════════════════════
+// SCREEN 2: LOBBY
+// ════════════════════════════════════════
+let roomsListener = null;
+function enterLobby() {
+  showScreen('lobby-screen');
+  document.getElementById('lobby-player-name').textContent = myName;
+  loadRooms();
+}
+
+function loadRooms() {
+  const container = document.getElementById('room-list-container');
+  if (roomsListener) off(ref(db,'hp_rooms'), 'value', roomsListener);
+  roomsListener = onValue(ref(db,'hp_rooms'), snap => {
+    const rooms = snap.val() || {};
+    const available = Object.entries(rooms).filter(([code, r]) => {
+      if (r.status !== 'waiting') return false;
+      const players = Object.keys(r.players || {});
+      // Show if player is already in it OR it's open
+      return players.includes(MY_PCID) || players.length < 6;
+    });
+    if (!available.length) {
+      container.innerHTML = '<div style="font-size:.78rem;color:var(--dim);text-align:center;padding:.5rem">No open rooms found.</div>';
+      return;
+    }
+    container.innerHTML = '<div class="room-list">' + available.map(([code,r]) => {
+      const pcount = Object.keys(r.players||{}).length;
+      const inRoom = Object.keys(r.players||{}).includes(MY_PCID);
+      return `<div class="room-item${inRoom?' selected':''}" data-code="${code}">
+        <span class="room-code">${code}</span>
+        <span class="room-players">${pcount}/6 players${inRoom?' (you)':''}</span>
+        <button class="btn btn-dark" style="padding:.2rem .5rem;font-size:.65rem">Join</button>
+      </div>`;
+    }).join('') + '</div>';
+    container.querySelectorAll('.room-item').forEach(el => {
+      el.addEventListener('click', () => joinRoom(el.dataset.code));
+    });
+  });
+}
+
+document.getElementById('create-room-btn').addEventListener('click', createRoom);
+document.getElementById('join-code-btn').addEventListener('click', () => {
+  const code = document.getElementById('room-code-input').value.trim().toUpperCase();
+  if (code.length === 6) joinRoom(code);
+  else setMsg('lobby-msg','Enter a valid 6-letter room code.');
+});
+document.getElementById('change-name-btn').addEventListener('click', () => showScreen('name-screen'));
+
+async function createRoom() {
+  const code = generateCode(6);
+  const roomRef = ref(db, `hp_rooms/${code}`);
+  await set(roomRef, {
+    code, host: MY_PCID, status: 'waiting',
+    players: { [MY_PCID]: { name: myName, pcid: MY_PCID, ready: true } },
+    created: Date.now()
+  });
+  myRoom = code;
+  isHost = true;
+  enterWaiting();
+}
+
+async function joinRoom(code) {
+  clearMsg('lobby-msg');
+  const snap = await get(ref(db, `hp_rooms/${code}`));
+  if (!snap.exists()) { setMsg('lobby-msg','Room not found.'); return; }
+  const r = snap.val();
+  if (r.status !== 'waiting') { setMsg('lobby-msg','That game has already started.'); return; }
+  const players = r.players || {};
+  if (!players[MY_PCID] && Object.keys(players).length >= 6) { setMsg('lobby-msg','Room is full.'); return; }
+  await update(ref(db, `hp_rooms/${code}/players/${MY_PCID}`), { name: myName, pcid: MY_PCID, ready: true });
+  myRoom = code;
+  isHost = r.host === MY_PCID;
+  enterWaiting();
+}
+
+// ════════════════════════════════════════
+// SCREEN 3: WAITING ROOM
+// ════════════════════════════════════════
+function enterWaiting() {
+  showScreen('waiting-screen');
+  document.getElementById('waiting-room-code').textContent = myRoom;
+  if (roomsListener) { off(ref(db,'hp_rooms'),'value',roomsListener); roomsListener=null; }
+  listenRoom();
+}
+
+function listenRoom() {
+  if (roomListener) off(ref(db,`hp_rooms/${myRoom}`),'value',roomListener);
+  roomListener = onValue(ref(db,`hp_rooms/${myRoom}`), snap => {
+    if (!snap.exists()) { showScreen('lobby-screen'); enterLobby(); return; }
+    const room = snap.val();
+    if (room.status === 'playing') { startLocalGame(room); return; }
+    const players = Object.values(room.players || {});
+    const pl = document.getElementById('waiting-players-list');
+    pl.innerHTML = players.map(p =>
+      `<span class="waiting-player${p.pcid===MY_PCID?' you':''}">${p.name}${p.pcid===MY_PCID?' (you)':''}</span>`
+    ).join('');
+    const startBtn = document.getElementById('start-game-btn');
+    isHost = room.host === MY_PCID;
+    startBtn.style.display = isHost && players.length >= 2 ? '' : 'none';
+    document.getElementById('waiting-status').textContent = players.length < 2 ? 'Waiting for more players... (need at least 2)' : `${players.length} player${players.length>1?'s':''} ready`;
+  });
+}
+
+document.getElementById('leave-room-btn').addEventListener('click', async () => {
+  await remove(ref(db, `hp_rooms/${myRoom}/players/${MY_PCID}`));
+  if (roomListener) { off(ref(db,`hp_rooms/${myRoom}`),'value',roomListener); roomListener=null; }
+  myRoom = '';
+  enterLobby();
+});
+
+document.getElementById('start-game-btn').addEventListener('click', async () => {
+  if (!isHost) return;
+  const snap = await get(ref(db,`hp_rooms/${myRoom}`));
+  const room = snap.val();
+  const players = Object.values(room.players || {});
+  if (players.length < 2) { setMsg('waiting-msg','Need at least 2 players.'); return; }
+  // Build game state
+  const gs = buildInitialGameState(players);
+  await update(ref(db,`hp_rooms/${myRoom}`), { status:'playing', gameState: gs });
+});
+
+// ════════════════════════════════════════
+// GAME STATE INITIALIZATION
+// ════════════════════════════════════════
+function buildInitialGameState(players) {
+  const deck = buildMainDeck();
+  const monsterDeck = buildMonsterDeck();
+  // Shuffle monsters and pick 5 for row, rest are side
+  const monsterRow = monsterDeck.slice(0,5);
+  const monsterReserve = monsterDeck.slice(5);
+  // Deal party leaders
+  const leaders = shuffle([...CARDS.partyLeaders]);
+  // Deal initial hands + party leaders
+  const playerStates = {};
+  players.forEach((p, i) => {
+    const leader = leaders[i % leaders.length];
+    const hand = [];
+    for (let j = 0; j < 5; j++) { if (deck.length) hand.push(deck.shift()); }
+    playerStates[p.pcid] = {
+      name: p.name, pcid: p.pcid,
+      hand, party: [], equippedItems: {},
+      slayedMonsters: [], partyLeader: {...leader, uid:`pl_${i}`},
+      actionPoints: 3, rolledHeroes: [],
+      statusEffects: {}
+    };
+  });
+  const turnOrder = shuffle(players.map(p => p.pcid));
+  return {
+    deck, discardPile: [],
+    monsterRow, monsterReserve,
+    players: playerStates,
+    turnOrder,
+    currentTurnIdx: 0,
+    currentTurn: turnOrder[0],
+    turnPhase: 'main',
+    log: [`${players.find(p=>p.pcid===turnOrder[0]).name} goes first!`],
+    pendingChallenge: null,
+    pendingRoll: null,
+    version: 1
+  };
+}
+
+// ════════════════════════════════════════
+// GAME SCREEN
+// ════════════════════════════════════════
+let localGS = null;
+let mySelectedCardUid = null;
+let mySelectedPartyUid = null;
+let mySelectedTargetPCID = null;
+let mySelectedMonsterUid = null;
+let logCollapsed = false;
+
+function startLocalGame(room) {
+  localGS = room.gameState;
+  showScreen('game-screen');
+  document.getElementById('game-log').classList.remove('hidden');
+  renderGame();
+}
+
+// Listen for game state changes
+function listenRoomForGame() {
+  if (roomListener) off(ref(db,`hp_rooms/${myRoom}`),'value',roomListener);
+  roomListener = onValue(ref(db,`hp_rooms/${myRoom}`), snap => {
+    if (!snap.exists()) return;
+    const room = snap.val();
+    if (room.status === 'waiting') { enterWaiting(); return; }
+    if (room.gameState) {
+      localGS = room.gameState;
+      renderGame();
+      checkWin();
+    }
+  });
+}
+
+function renderGame() {
+  if (!localGS) return;
+  const gs = localGS;
+  const me = gs.players[MY_PCID];
+  if (!me) return;
+  const isMyTurn = gs.currentTurn === MY_PCID;
+
+  // Top bar
+  document.getElementById('top-room-code').innerHTML = `Room: <span>${myRoom}</span>`;
+  const turnName = gs.players[gs.currentTurn]?.name || '?';
+  document.getElementById('top-turn-info').innerHTML = `Turn: <span>${turnName}</span>`;
+  const ap = isMyTurn ? (me.actionPoints ?? 3) : 0;
+  document.getElementById('top-ap').innerHTML = `AP: <span>${'●'.repeat(Math.max(0,ap))}${'○'.repeat(Math.max(0,3-ap))}</span>`;
+  document.getElementById('deck-count').textContent = gs.deck?.length || 0;
+  document.getElementById('deck-count2').textContent = gs.deck?.length || 0;
+  document.getElementById('hand-count').textContent = me.hand?.length || 0;
+
+  // Turn banner
+  const banner = document.getElementById('turn-banner');
+  if (isMyTurn) {
+    banner.textContent = `⚔ Your Turn — ${ap} Action Point${ap!==1?'s':''} remaining`;
+    banner.classList.remove('hidden');
+  } else {
+    banner.textContent = `${turnName}'s Turn`;
+    banner.classList.remove('hidden');
+  }
+
+  // Monster row
+  renderMonsters(gs);
+
+  // Opponents
+  renderOpponents(gs);
+
+  // My area
+  renderMyArea(gs, me);
+
+  // Action buttons
+  document.querySelectorAll('.action-bar .btn').forEach(b => {
+    b.disabled = !isMyTurn;
+  });
+
+  // Log
+  renderLog(gs);
+}
+
+function renderMonsters(gs) {
+  const el = document.getElementById('monster-row');
+  el.innerHTML = '';
+  (gs.monsterRow || []).forEach(m => {
+    const div = document.createElement('div');
+    div.className = 'monster-card';
+    div.innerHTML = `<img src="${cardImage(m)}" alt="${m.name}" onerror="this.src='images/Monster_Card_Back.png'">
+      <div class="monster-label">${m.name}<br><span style="color:var(--dim)">Win:${m.winRoll}+</span></div>`;
+    div.addEventListener('mouseenter', () => showTooltip({...m, effect: `Req: ${m.require} | Win:${m.winRoll}+ → ${m.winEffect} | Lose:≤${m.loseRoll} → ${m.loseEffect}`}));
+    div.addEventListener('mouseleave', hideTooltip);
+    div.addEventListener('click', () => { mySelectedMonsterUid = m.uid; renderGame(); });
+    if (mySelectedMonsterUid === m.uid) div.style.outline = '2px solid var(--gold2)';
+    el.appendChild(div);
+  });
+
+  // Discard top
+  const discard = document.getElementById('discard-pile');
+  const top = gs.discardPile?.at(-1);
+  if (top) {
+    discard.className = 'card card-sm';
+    discard.innerHTML = `<img src="${cardImage(top)}" alt="${top.name}" style="width:100%;height:100%;object-fit:cover" onerror="this.src='images/Card_Back.png'">`;
+  } else {
+    discard.className = 'card card-sm';
+    discard.innerHTML = '<div style="font-size:.55rem;color:var(--dim);padding:2px;text-align:center;font-family:Cinzel,serif">Empty</div>';
+  }
+}
+
+function renderOpponents(gs) {
+  const area = document.getElementById('opponents-area');
+  area.innerHTML = '';
+  Object.values(gs.players).filter(p => p.pcid !== MY_PCID).forEach(p => {
+    const isActive = gs.currentTurn === p.pcid;
+    const div = document.createElement('div');
+    div.className = 'player-panel' + (isActive?' active-turn':'');
+    div.innerHTML = `<div class="player-name">${p.name}${isActive?'<span class="turn-badge">TURN</span>':''}
+      <span style="font-size:.62rem;color:var(--dim);margin-left:auto">Hand:${p.hand?.length||0} | 🏆${p.slayedMonsters?.length||0}</span></div>`;
+
+    // Leader
+    if (p.partyLeader) {
+      const lc = makeCardEl(p.partyLeader, {sm:true});
+      lc.style.border = '2px solid var(--gold2)';
+      div.appendChild(lc);
+    }
+
+    // Party
+    const partyRow = document.createElement('div');
+    partyRow.className = 'party-row';
+    (p.party||[]).forEach(hero => {
+      const hc = makeCardEl(hero, {sm:true});
+      // Show equipped item
+      if (p.equippedItems?.[hero.uid]) {
+        const eqDiv = document.createElement('div');
+        eqDiv.className = 'card-equipped';
+        const eq = p.equippedItems[hero.uid];
+        eqDiv.innerHTML = `<img src="${cardImage(eq)}" alt="${eq.name}">`;
+        hc.appendChild(eqDiv);
+      }
+      partyRow.appendChild(hc);
+    });
+    if ((p.party||[]).length === 0) {
+      partyRow.innerHTML = '<span style="font-size:.6rem;color:var(--dim);padding:.2rem">No heroes yet</span>';
+    }
+    div.appendChild(partyRow);
+
+    // Slayed monsters
+    if (p.slayedMonsters?.length) {
+      const mrow = document.createElement('div');
+      mrow.style.cssText = 'display:flex;gap:2px;flex-wrap:wrap;margin-top:2px';
+      p.slayedMonsters.forEach(m => {
+        const mc = makeCardEl(m, {sm:true});
+        mc.style.border = '1px solid var(--gold)';
+        mrow.appendChild(mc);
+      });
+      div.appendChild(mrow);
+    }
+
+    area.appendChild(div);
+  });
+}
+
+function renderMyArea(gs, me) {
+  document.getElementById('my-area-label').textContent = `${me.name}'s Party ${gs.currentTurn===MY_PCID?'(Your Turn)':''}`;
+
+  // Leader
+  const leaderArea = document.getElementById('my-leader-area');
+  leaderArea.innerHTML = '';
+  if (me.partyLeader) {
+    const lc = makeCardEl(me.partyLeader, {lg:true});
+    lc.style.border = '2px solid var(--gold2)';
+    leaderArea.appendChild(lc);
+  }
+
+  // Party
+  const partyEl = document.getElementById('my-party');
+  partyEl.innerHTML = '';
+  (me.party||[]).forEach(hero => {
+    const hc = makeCardEl(hero, {
+      selected: mySelectedPartyUid === hero.uid,
+      onClick: () => { mySelectedPartyUid = hero.uid === mySelectedPartyUid ? null : hero.uid; renderGame(); }
+    });
+    hc.style.cursor = 'pointer';
+    if (me.equippedItems?.[hero.uid]) {
+      const eq = me.equippedItems[hero.uid];
+      const eqDiv = document.createElement('div');
+      eqDiv.className = 'card-equipped';
+      eqDiv.innerHTML = `<img src="${cardImage(eq)}" alt="${eq.name}">`;
+      hc.appendChild(eqDiv);
+    }
+    partyEl.appendChild(hc);
+  });
+
+  // Slayed monsters badge
+  if (me.slayedMonsters?.length) {
+    const badge = document.createElement('span');
+    badge.style.cssText = 'font-family:Cinzel,serif;font-size:.65rem;color:var(--gold2);margin-left:.4rem;align-self:center';
+    badge.textContent = `🏆 ${me.slayedMonsters.length} Monster${me.slayedMonsters.length>1?'s':''}`;
+    partyEl.appendChild(badge);
+  }
+
+  // Hand
+  const handEl = document.getElementById('my-hand');
+  handEl.innerHTML = '';
+  (me.hand||[]).forEach(card => {
+    const c = makeCardEl(card, {
+      selected: mySelectedCardUid === card.uid,
+      onClick: () => { mySelectedCardUid = card.uid === mySelectedCardUid ? null : card.uid; renderGame(); }
+    });
+    handEl.appendChild(c);
+  });
+}
+
+function renderLog(gs) {
+  const entries = document.getElementById('log-entries');
+  const logs = (gs.log||[]).slice(-30);
+  entries.innerHTML = logs.map(l =>
+    `<div class="log-entry${l.includes(myName)?` you`:(l.includes('⚔')||l.includes('🐉')?' attack':(l.includes('✅')||l.includes('🎉')?' action':' system'))}">${l}</div>`
+  ).join('');
+  entries.scrollTop = entries.scrollHeight;
+}
+
+// ════════════════════════════════════════
+// ACTIONS
+// ════════════════════════════════════════
+document.getElementById('draw-action-btn').addEventListener('click', () => doAction('draw'));
+document.getElementById('play-card-btn').addEventListener('click', () => doAction('play'));
+document.getElementById('roll-hero-btn').addEventListener('click', () => doAction('roll'));
+document.getElementById('attack-btn').addEventListener('click', () => doAction('attack'));
+document.getElementById('redraw-btn').addEventListener('click', () => doAction('redraw'));
+document.getElementById('end-turn-btn').addEventListener('click', endTurn);
+document.getElementById('deck-card').addEventListener('click', () => doAction('draw'));
+
+async function doAction(type) {
+  if (!localGS || localGS.currentTurn !== MY_PCID) return;
+  const gs = deepClone(localGS);
+  const me = gs.players[MY_PCID];
+
+  if (type === 'draw') {
+    if (me.actionPoints < 1) { showNotif('Not enough AP!'); return; }
+    drawCards(gs, MY_PCID, 1);
+    me.actionPoints--;
+    addLog(gs, `${me.name} draws a card.`);
+    await pushState(gs);
+  }
+  else if (type === 'redraw') {
+    if (me.actionPoints < 3) { showNotif('Need 3 AP!'); return; }
+    gs.discardPile.push(...me.hand);
+    me.hand = [];
+    drawCards(gs, MY_PCID, 5);
+    me.actionPoints -= 3;
+    addLog(gs, `${me.name} discards hand and draws 5 cards.`);
+    await pushState(gs);
+  }
+  else if (type === 'play') {
+    if (!mySelectedCardUid) { showNotif('Select a card from your hand first.'); return; }
+    if (me.actionPoints < 1) { showNotif('Not enough AP!'); return; }
+    const card = me.hand.find(c => c.uid === mySelectedCardUid);
+    if (!card) { showNotif('Card not found in hand.'); return; }
+    await playCard(gs, card);
+  }
+  else if (type === 'roll') {
+    if (!mySelectedPartyUid) { showNotif('Select a Hero in your Party to roll for.'); return; }
+    if (me.actionPoints < 1) { showNotif('Not enough AP!'); return; }
+    const hero = me.party.find(h => h.uid === mySelectedPartyUid);
+    if (!hero) { showNotif('Hero not found.'); return; }
+    if ((me.rolledHeroes||[]).includes(hero.uid)) { showNotif('Already rolled for this hero this turn.'); return; }
+    await rollForHero(gs, hero);
+  }
+  else if (type === 'attack') {
+    if (!mySelectedMonsterUid) { showNotif('Select a Monster from the row to attack.'); return; }
+    if (me.actionPoints < 2) { showNotif('Need 2 AP!'); return; }
+    const monster = gs.monsterRow.find(m => m.uid === mySelectedMonsterUid);
+    if (!monster) { showNotif('Monster not found.'); return; }
+    await attackMonster(gs, monster);
+  }
+}
+
+async function playCard(gs, card) {
+  const me = gs.players[MY_PCID];
+  me.hand = me.hand.filter(c => c.uid !== card.uid);
+  me.actionPoints--;
+  mySelectedCardUid = null;
+
+  if (card.type.startsWith('Hero')) {
+    me.party.push(card);
+    addLog(gs, `${me.name} plays ${card.name} to their Party.`);
+    await pushState(gs);
+    // Offer to roll immediately
+    if (me.actionPoints > 0) {
+      const roll = confirm(`Roll to use ${card.name}'s effect now? (costs 1 AP)`);
+      if (roll) {
+        const freshGS = deepClone(localGS);
+        freshGS.players[MY_PCID].actionPoints--;
+        if (!(freshGS.players[MY_PCID].rolledHeroes)) freshGS.players[MY_PCID].rolledHeroes=[];
+        freshGS.players[MY_PCID].rolledHeroes.push(card.uid);
+        await rollForHero(freshGS, card, true);
+      }
+    }
+  }
+  else if (card.type === 'Item' || card.type === 'Cursed Item') {
+    // Need to select a hero to equip
+    const hero = me.party.length ? await selectHeroInParty(gs, MY_PCID, `Equip ${card.name} to which Hero?`) : null;
+    if (hero) {
+      if (!me.equippedItems) me.equippedItems = {};
+      me.equippedItems[hero.uid] = card;
+      addLog(gs, `${me.name} equips ${card.name} to ${hero.name}.`);
+    } else {
+      gs.discardPile.push(card);
+      addLog(gs, `${me.name} plays ${card.name} but has no heroes — discarded.`);
+    }
+    await pushState(gs);
+  }
+  else if (card.type === 'Magic') {
+    addLog(gs, `${me.name} plays ${card.name}.`);
+    gs.discardPile.push(card);
+    await applyMagicEffect(gs, card);
+  }
+  else if (card.type === 'Modifier') {
+    // Modifier played after a roll — can't play outside of roll context here
+    showNotif('Play Modifier cards during a dice roll!');
+    me.hand.push(card); // return
+    me.actionPoints++;
+    await pushState(gs);
+  }
+  else if (card.type === 'Challenge') {
+    showNotif('Play Challenge cards when another player plays a card!');
+    me.hand.push(card); me.actionPoints++;
+    await pushState(gs);
+  }
+}
+
+async function rollForHero(gs, hero, skipDeduct=false) {
+  const me = gs.players[MY_PCID];
+  if (!skipDeduct) { me.actionPoints--; }
+  if (!me.rolledHeroes) me.rolledHeroes = [];
+  me.rolledHeroes.push(hero.uid);
+
+  const roll = rollDice();
+  let bonus = 0;
+  // Check item bonuses
+  const equipped = me.equippedItems?.[hero.uid];
+  if (equipped?.name === 'Really Big Ring') bonus += 2;
+  if (equipped?.name === "Curse of the Snake's Eyes") bonus -= 2;
+  // Check status effects
+  if (me.statusEffects?.enchanted) bonus += 2;
+  if (me.statusEffects?.vibrantGlow) bonus += 5;
+  if (me.statusEffects?.wiseShield) bonus += 3;
+  // Check leader
+  if (me.partyLeader?.type === 'Party Leader: Bard') bonus += 1;
+  // Check monster passives
+  (me.slayedMonsters||[]).forEach(m => {
+    if (m.name==='Anuran Cauldron') bonus+=1;
+    if (m.name==='Dark Dragon King') bonus+=1;
+  });
+
+  const total = roll + bonus;
+  const target = hero.roll;
+  const success = total >= target;
+
+  addLog(gs, `${me.name} rolls for ${hero.name}: ${roll}${bonus?`${bonus>=0?'+':''}${bonus}`:''}=${total} (need ${target}+) → ${success?'✅ SUCCESS':'❌ FAIL'}`);
+
+  await showDiceModal(`Rolling for ${hero.name}`, roll, bonus, total, target, success, hero.effect);
+
+  if (success) {
+    await applyHeroEffect(gs, hero);
+  } else {
+    // Check Particularly Rusty Coin
+    if (equipped?.name === 'Particularly Rusty Coin') {
+      drawCards(gs, MY_PCID, 1);
+      addLog(gs, `${me.name} draws a card from Particularly Rusty Coin.`);
+    }
+    // Sealing Key prevents use anyway (we just let the roll happen but don't apply effect)
+  }
+  await pushState(gs);
+}
+
+async function attackMonster(gs, monster) {
+  const me = gs.players[MY_PCID];
+  // Check requirements
+  const req = monster.require;
+  const partyClasses = getPartyClasses(me);
+  if (!meetsRequirement(req, partyClasses)) {
+    showNotif(`Need ${formatReq(req)} to attack ${monster.name}!`);
+    return;
+  }
+  me.actionPoints -= 2;
+  const roll = rollDice();
+  let bonus = 0;
+  if (me.partyLeader?.type === 'Party Leader: Ranger') bonus += 1;
+  (me.slayedMonsters||[]).forEach(m => {
+    if (m.name==='Anuran Cauldron') bonus+=1;
+  });
+  if (me.statusEffects?.enchanted) bonus += 2;
+  const total = roll + bonus;
+
+  addLog(gs, `${me.name} attacks ${monster.name}: rolled ${roll}${bonus?`+${bonus}`:''}=${total}`);
+
+  await showDiceModal(`Attacking ${monster.name}`, roll, bonus, total, monster.winRoll,
+    total >= monster.winRoll, `Win:${monster.winRoll}+ | Lose:≤${monster.loseRoll}`);
+
+  if (total >= monster.winRoll) {
+    // WIN
+    gs.monsterRow = gs.monsterRow.filter(m => m.uid !== monster.uid);
+    me.slayedMonsters = me.slayedMonsters || [];
+    me.slayedMonsters.push(monster);
+    if (monster.winEffect.includes('DRAW 2')) drawCards(gs, MY_PCID, 2);
+    else if (monster.winEffect.includes('DRAW')) drawCards(gs, MY_PCID, 1);
+    addLog(gs, `🐉 ${me.name} slays ${monster.name}! Gained passive: ${monster.passiveEffect}`);
+    // Replace from reserve
+    if (gs.monsterReserve?.length) {
+      gs.monsterRow.push(gs.monsterReserve.shift());
+    }
+  } else if (total <= monster.loseRoll) {
+    // LOSE
+    addLog(gs, `${me.name} loses against ${monster.name}! ${monster.loseEffect}`);
+    if (monster.loseEffect.includes('SACRIFICE')) {
+      if (me.party.length > 0) {
+        // Auto sacrifice first hero (simplified)
+        const sacrificed = me.party.shift();
+        gs.discardPile.push(sacrificed);
+        addLog(gs, `${me.name} sacrifices ${sacrificed.name}.`);
+      }
+    } else if (monster.loseEffect.includes('DISCARD 2')) {
+      for (let i = 0; i < 2 && me.hand.length; i++) {
+        gs.discardPile.push(me.hand.shift());
+      }
+    } else if (monster.loseEffect.includes('SLAY')) {
+      // For Dracos: losing means you slay it but with penalty
+      gs.monsterRow = gs.monsterRow.filter(m => m.uid !== monster.uid);
+      me.slayedMonsters = me.slayedMonsters || [];
+      me.slayedMonsters.push(monster);
+      if (gs.monsterReserve?.length) gs.monsterRow.push(gs.monsterReserve.shift());
+    }
+  } else {
+    addLog(gs, `${me.name}'s attack on ${monster.name} had no effect.`);
+  }
+
+  mySelectedMonsterUid = null;
+  await pushState(gs);
+}
+
+// ── HERO EFFECTS (simplified but functional) ──
+async function applyHeroEffect(gs, hero) {
+  const me = gs.players[MY_PCID];
+  const effect = hero.effect;
+  addLog(gs, `✨ ${hero.name} effect: ${effect}`);
+
+  // DRAW effects
+  if (effect.includes('DRAW 3')) drawCards(gs, MY_PCID, 3);
+  else if (effect.includes('DRAW 2')) drawCards(gs, MY_PCID, 2);
+  else if (effect.startsWith('DRAW a card') || effect.includes('DRAW a card')) drawCards(gs, MY_PCID, 1);
+
+  // DISCARD effects
+  if (effect.includes('DISCARD a card') && !effect.includes('DISCARD 2')) {
+    if (me.hand.length) {
+      const idx = await pickCardFromHand(gs, MY_PCID, 'Choose a card to DISCARD');
+      if (idx >= 0) { gs.discardPile.push(me.hand.splice(idx,1)[0]); }
+    }
+  }
+  if (effect.includes('DISCARD 2 cards')) {
+    for (let i = 0; i < 2 && me.hand.length; i++) {
+      const idx = await pickCardFromHand(gs, MY_PCID, 'Choose a card to DISCARD ('+( i+1)+'/2)');
+      if (idx >= 0) gs.discardPile.push(me.hand.splice(idx,1)[0]);
+    }
+  }
+
+  // Status effects
+  if (effect.includes('+5 to all')) { me.statusEffects = me.statusEffects||{}; me.statusEffects.vibrantGlow=true; }
+  if (effect.includes('+3 to all')) { me.statusEffects = me.statusEffects||{}; me.statusEffects.wiseShield=true; }
+  if (effect.includes('cannot be stolen')) { me.statusEffects = me.statusEffects||{}; me.statusEffects.protected=true; }
+  if (effect.includes('cannot be destroyed') && effect.includes('Party')) { me.statusEffects = me.statusEffects||{}; me.statusEffects.mighty=true; }
+  if (effect.includes('cannot be challenged')) { me.statusEffects = me.statusEffects||{}; me.statusEffects.ironResolve=true; }
+
+  // DRAW cards until 7
+  if (effect.includes('until you have 7')) {
+    while (me.hand.length < 7 && gs.deck.length) me.hand.push(gs.deck.shift());
+  }
+}
+
+async function applyMagicEffect(gs, card) {
+  const me = gs.players[MY_PCID];
+  const effect = card.effect;
+
+  if (effect.includes('DRAW 3')) drawCards(gs, MY_PCID, 3);
+  if (effect.includes('DRAW a card')) drawCards(gs, MY_PCID, 1);
+  if (effect.includes('+2 to all')) { me.statusEffects=me.statusEffects||{}; me.statusEffects.enchanted=true; }
+
+  if (card.name === 'Critical Boost') {
+    drawCards(gs, MY_PCID, 3);
+    if (me.hand.length) { gs.discardPile.push(me.hand.shift()); }
+  }
+  if (card.name === 'Forceful Winds') {
+    Object.values(gs.players).forEach(p => {
+      if (p.equippedItems) {
+        Object.entries(p.equippedItems).forEach(([huid, item]) => {
+          p.hand = p.hand||[];
+          p.hand.push(item);
+        });
+        p.equippedItems = {};
+      }
+    });
+  }
+  await pushState(gs);
+}
+
+// ── HELPERS ──
+function drawCards(gs, pcid, count) {
+  const p = gs.players[pcid];
+  for (let i = 0; i < count; i++) {
+    if (!gs.deck.length) {
+      if (gs.discardPile.length) {
+        gs.deck = shuffle(gs.discardPile);
+        gs.discardPile = [];
+        addLog(gs,'♻ Discard pile shuffled into deck.');
+      } else break;
+    }
+    p.hand.push(gs.deck.shift());
+  }
+}
+
+function getPartyClasses(player) {
+  const classes = new Set();
+  (player.party||[]).forEach(h => {
+    const cls = h.type.replace('Hero: ','');
+    // Check equipped mask
+    const eq = player.equippedItems?.[h.uid];
+    if (eq?.name?.includes('Mask')) {
+      classes.add(eq.name.replace(' Mask',''));
+    } else {
+      classes.add(cls);
+    }
+  });
+  return classes;
+}
+
+function meetsRequirement(req, classes) {
+  // H=any Hero, B=Bard, F=Fighter, G=Guardian, R=Ranger, T=Thief, W=Wizard
+  const classMap = {B:'Bard',F:'Fighter',G:'Guardian',R:'Ranger',T:'Thief',W:'Wizard'};
+  const needed = req.split('').map(c => classMap[c] || 'Any');
+  const available = [...classes];
+  return needed.every((n,i) => n==='Any' ? available.length > i : classes.has(n));
+}
+
+function formatReq(req) {
+  const m = {H:'any Hero',B:'Bard',F:'Fighter',G:'Guardian',R:'Ranger',T:'Thief',W:'Wizard'};
+  return req.split('').map(c => m[c]||c).join(' + ');
+}
+
+function rollDice() {
+  return Math.floor(Math.random() * 6) + Math.floor(Math.random() * 6) + 2; // 2d6
+}
+
+function addLog(gs, msg) {
+  gs.log = gs.log||[];
+  gs.log.push(msg);
+  if (gs.log.length > 100) gs.log = gs.log.slice(-100);
+}
+
+async function pushState(gs) {
+  await update(ref(db, `hp_rooms/${myRoom}`), { gameState: gs });
+}
+
+function deepClone(obj) { return JSON.parse(JSON.stringify(obj)); }
+
+async function endTurn() {
+  if (!localGS || localGS.currentTurn !== MY_PCID) return;
+  const gs = deepClone(localGS);
+  const me = gs.players[MY_PCID];
+  // Clear turn-specific status
+  me.rolledHeroes = [];
+  me.actionPoints = 3;
+  // Advance turn
+  gs.currentTurnIdx = (gs.currentTurnIdx + 1) % gs.turnOrder.length;
+  gs.currentTurn = gs.turnOrder[gs.currentTurnIdx];
+  // Check Mega Slime bonus AP
+  const nextPlayer = gs.players[gs.currentTurn];
+  if (nextPlayer?.slayedMonsters?.some(m => m.name === 'Mega Slime')) {
+    nextPlayer.actionPoints = 4;
+  } else {
+    nextPlayer.actionPoints = 3;
+  }
+  // Clear status effects at turn end
+  if (me.statusEffects) {
+    delete me.statusEffects.vibrantGlow;
+    delete me.statusEffects.wiseShield;
+    delete me.statusEffects.ironResolve;
+  }
+  addLog(gs, `--- ${nextPlayer?.name}'s turn begins ---`);
+  await pushState(gs);
+  mySelectedCardUid = null;
+  mySelectedPartyUid = null;
+  mySelectedMonsterUid = null;
+}
+
+// ════════════════════════════════════════
+// DICE MODAL
+// ════════════════════════════════════════
+async function showDiceModal(title, roll, bonus, total, target, success, effectText) {
+  return new Promise(resolve => {
+    const modal = document.getElementById('dice-modal');
+    document.getElementById('dice-modal-title').textContent = title;
+    const emoji = ['⚀','⚁','⚂','⚃','⚄','⚅'];
+    document.getElementById('dice-display').textContent = emoji[Math.min(5,Math.floor(roll/2-1))]||'🎲';
+    document.getElementById('dice-result').textContent = total;
+    document.getElementById('dice-breakdown').textContent =
+      bonus ? `${roll} ${bonus>=0?'+':''}${bonus} = ${total}` : `Rolled: ${total}`;
+    const outcome = document.getElementById('dice-outcome');
+    outcome.textContent = success ? `✅ Success! (Need ${target}+)` : `❌ Failed (Need ${target}+)`;
+    outcome.style.background = success ? 'rgba(20,100,30,.3)' : 'rgba(150,20,20,.3)';
+    outcome.style.color = success ? '#90ff90' : '#ff9090';
+    if (effectText) document.getElementById('dice-breakdown').textContent += ` | ${effectText.substring(0,60)}`;
+    document.getElementById('dice-close-btn').style.display = '';
+    document.getElementById('dice-close-btn').onclick = () => { modal.classList.add('hidden'); resolve(); };
+    modal.classList.remove('hidden');
+  });
+}
+
+// ════════════════════════════════════════
+// UTILITY SELECTORS
+// ════════════════════════════════════════
+async function selectHeroInParty(gs, pcid, prompt) {
+  const party = gs.players[pcid]?.party || [];
+  if (!party.length) return null;
+  return new Promise(resolve => {
+    openModal(prompt, '', party, (card) => resolve(card), false);
+  });
+}
+async function pickCardFromHand(gs, pcid, prompt) {
+  const hand = gs.players[pcid]?.hand || [];
+  if (!hand.length) { resolve(-1); return -1; }
+  return new Promise(resolve => {
+    openModal(prompt, '', hand, (card) => {
+      const idx = hand.findIndex(c => c.uid === card.uid);
+      resolve(idx);
+    }, false);
+  });
+}
+
+function openModal(title, desc, cards, onSelect, multi=false) {
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-desc').textContent = desc;
+  const container = document.getElementById('modal-cards-container');
+  container.innerHTML = '';
+  let sel = null;
+  cards.forEach(card => {
+    const c = makeCardEl(card, {
+      onClick: () => {
+        container.querySelectorAll('.card').forEach(e => e.classList.remove('selected'));
+        c.classList.add('selected');
+        sel = card;
+        document.getElementById('modal-confirm-btn').disabled = false;
+      }
+    });
+    container.appendChild(c);
+  });
+  document.getElementById('modal-player-list').innerHTML = '';
+  const modal = document.getElementById('card-select-modal');
+  modal.classList.remove('hidden');
+  document.getElementById('modal-confirm-btn').disabled = true;
+  document.getElementById('modal-confirm-btn').onclick = () => {
+    if (sel) { modal.classList.add('hidden'); onSelect(sel); }
+  };
+  document.getElementById('modal-cancel-btn').onclick = () => {
+    modal.classList.add('hidden'); onSelect(null);
+  };
+}
+
+// ════════════════════════════════════════
+// WIN DETECTION
+// ════════════════════════════════════════
+function checkWin() {
+  if (!localGS) return;
+  for (const p of Object.values(localGS.players)) {
+    // Condition 1: 3 monsters
+    if ((p.slayedMonsters||[]).length >= 3) {
+      showWin(p, '3 Monsters Slain!');
+      return;
+    }
+    // Condition 2: 6 different hero classes
+    const classes = getPartyClasses(p);
+    if (classes.size >= 6) {
+      showWin(p, '6 Hero Classes in Party!');
+      return;
+    }
+  }
+}
+function showWin(player, reason) {
+  document.getElementById('win-player-name').textContent = `${player.name} Wins!`;
+  document.getElementById('win-reason').textContent = reason;
+  showScreen('win-screen');
+}
+
+document.getElementById('back-to-lobby-btn').addEventListener('click', () => {
+  myRoom = '';
+  mySelectedCardUid = null;
+  enterLobby();
+});
+
+// ════════════════════════════════════════
+// MISC UI
+// ════════════════════════════════════════
+function showNotif(msg) {
+  const el = document.createElement('div');
+  el.style.cssText = `position:fixed;bottom:80px;left:50%;transform:translateX(-50%);
+    background:rgba(0,0,0,.85);border:1px solid var(--gold);color:var(--text2);
+    font-family:Cinzel,serif;font-size:.78rem;padding:.5rem 1rem;border-radius:4px;
+    z-index:300;animation:fadeInUp .3s ease;pointer-events:none;white-space:nowrap;
+    letter-spacing:.05em`;
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2500);
+}
+
+document.getElementById('discard-pile').addEventListener('click', () => {
+  if (!localGS?.discardPile?.length) return;
+  const container = document.getElementById('discard-modal-cards');
+  container.innerHTML = '';
+  [...localGS.discardPile].reverse().forEach(c => container.appendChild(makeCardEl(c, {sm:true})));
+  document.getElementById('discard-modal').classList.remove('hidden');
+});
+document.getElementById('discard-close-btn').addEventListener('click', () => document.getElementById('discard-modal').classList.add('hidden'));
+document.getElementById('rules-btn').addEventListener('click', () => document.getElementById('rules-modal').classList.remove('hidden'));
+document.getElementById('rules-close-btn').addEventListener('click', () => document.getElementById('rules-modal').classList.add('hidden'));
+document.getElementById('menu-btn').addEventListener('click', () => {
+  if (confirm('Return to lobby? You will leave the game.')) {
+    if (roomListener) off(ref(db,`hp_rooms/${myRoom}`),'value',roomListener);
+    myRoom=''; enterLobby();
+  }
+});
+document.getElementById('log-toggle').addEventListener('click', () => {
+  const log = document.getElementById('game-log');
+  logCollapsed = !logCollapsed;
+  log.classList.toggle('collapsed', logCollapsed);
+  document.getElementById('log-label').textContent = logCollapsed ? '' : 'Log';
+});
+
+// Start game listener when we get to game screen
+const gameScreenObserver = new MutationObserver(() => {
+  const gs = document.getElementById('game-screen');
+  if (!gs.classList.contains('hidden') && myRoom) listenRoomForGame();
+});
+gameScreenObserver.observe(document.getElementById('game-screen'), {attributes:true, attributeFilter:['class']});
+
+// CSS animation for notifs
+const style = document.createElement('style');
+style.textContent = `@keyframes fadeInUp{from{opacity:0;transform:translateX(-50%) translateY(10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}`;
+document.head.appendChild(style);
+</script>
+</body>
+</html>
