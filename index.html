@@ -167,10 +167,45 @@ body::before{content:'';position:fixed;inset:0;background:
 .tooltip-effect{color:var(--text);font-size:.76rem}
 
 /* ── DICE ── */
-.dice-display{font-size:3rem;text-align:center;padding:.5rem;animation:diceSpin .5s ease-out}
-@keyframes diceSpin{0%{transform:rotate(-15deg) scale(0.5);opacity:0}100%{transform:rotate(0deg) scale(1);opacity:1}}
-.dice-result{font-family:'Cinzel Decorative',cursive;font-size:2rem;color:var(--gold2);text-align:center}
-.dice-breakdown{font-size:.8rem;color:var(--text2);text-align:center;margin-top:.3rem}
+.two-dice-display{display:flex;align-items:center;justify-content:center;gap:.8rem;padding:.4rem 0}
+.die-face{font-size:3.2rem;line-height:1;animation:dieBounce .5s cubic-bezier(.36,.07,.19,.97)}
+.die-face.die2{animation-delay:.08s}
+.die-plus{font-size:1.6rem;color:var(--gold);align-self:center}
+@keyframes dieBounce{0%{transform:rotate(-20deg) scale(.3);opacity:0}60%{transform:rotate(5deg) scale(1.1)}100%{transform:rotate(0) scale(1);opacity:1}}
+.dice-result{font-family:'Cinzel Decorative',cursive;font-size:2.4rem;color:var(--gold2);text-align:center;margin-top:.2rem}
+.dice-breakdown{font-size:.8rem;color:var(--text2);text-align:center;margin-top:.2rem;line-height:1.5}
+.modifier-log{margin:.4rem 0;max-height:80px;overflow-y:auto;font-size:.75rem}
+.modifier-entry{padding:.2rem .4rem;border-radius:3px;margin:.1rem 0;animation:fadeInUp .25s ease}
+.modifier-entry.pos{background:rgba(20,120,40,.3);color:#90ff90;border:1px solid #2a8a40}
+.modifier-entry.neg{background:rgba(150,20,20,.3);color:#ff9090;border:1px solid #9b2020}
+
+/* ── TIMER BAR ── */
+.timer-bar-wrap{height:6px;background:rgba(0,0,0,.4);border-radius:3px;overflow:hidden;margin:.4rem 0}
+.timer-bar-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--red2),var(--gold));transition:width .1s linear}
+.timer-label{font-family:'Cinzel',serif;font-size:.7rem;color:var(--text2);text-align:center;letter-spacing:.1em}
+
+/* ── CHALLENGE BANNER (for opponents) ── */
+.challenge-banner{position:fixed;top:0;left:0;right:0;background:linear-gradient(135deg,rgba(100,10,10,.97),rgba(60,5,5,.97));border-bottom:2px solid var(--red2);z-index:120;padding:.8rem 1rem;display:flex;align-items:center;gap:1rem;box-shadow:0 4px 20px rgba(150,20,20,.5)}
+.challenge-banner.hidden{display:none}
+.challenge-banner-text{flex:1}
+.challenge-banner-title{font-family:'Cinzel Decorative',cursive;font-size:1rem;color:#ff7070}
+.challenge-banner-sub{font-size:.75rem;color:var(--text2);font-family:'Cinzel',serif;margin-top:.2rem}
+.challenge-banner-card{width:50px;height:70px;border-radius:4px;overflow:hidden;border:1px solid var(--red2);flex:0 0 auto}
+.challenge-banner-card img{width:100%;height:100%;object-fit:cover}
+
+/* ── MODIFIER OFFER BANNER ── */
+.modifier-banner{position:fixed;bottom:0;left:0;right:0;background:linear-gradient(135deg,rgba(20,10,60,.97),rgba(40,20,80,.97));border-top:2px solid var(--blue2);z-index:120;padding:.6rem .8rem;display:flex;align-items:center;gap:.8rem;box-shadow:0 -4px 20px rgba(50,50,150,.4)}
+.modifier-banner.hidden{display:none}
+.modifier-banner-info{flex:1;font-family:'Cinzel',serif;font-size:.72rem;color:#aaa0ff;letter-spacing:.05em}
+.modifier-banner-cards{display:flex;gap:.3rem;flex-wrap:wrap}
+
+/* ── TOOLTIP (mobile safe) ── */
+.tooltip{position:fixed;z-index:200;background:var(--panel);border:1px solid var(--gold);border-radius:6px;padding:.7rem;width:240px;max-width:calc(100vw - 16px);font-size:.78rem;line-height:1.4;pointer-events:none;box-shadow:0 4px 20px rgba(0,0,0,.8)}
+.tooltip.hidden{display:none}
+.tooltip-name{font-family:'Cinzel',serif;font-size:.85rem;color:var(--gold2);margin-bottom:.3rem}
+.tooltip-type{font-size:.7rem;color:var(--text2);margin-bottom:.2rem;font-style:italic}
+.tooltip-roll{font-family:'Cinzel',serif;font-size:.75rem;color:var(--red2);margin-bottom:.2rem}
+.tooltip-effect{color:var(--text);font-size:.76rem}
 
 /* ── LOG ── */
 .game-log{position:fixed;right:0;top:0;bottom:0;width:220px;background:rgba(10,8,4,.9);border-left:1px solid var(--border);padding:.5rem;overflow-y:auto;z-index:5;font-size:.72rem;display:flex;flex-direction:column}
@@ -288,6 +323,18 @@ body::before{content:'';position:fixed;inset:0;background:
 
     <button class="btn btn-gold btn-full" id="create-room-btn">⚔ Create New Room</button>
 
+    <!-- Room name form, revealed on click -->
+    <div id="create-room-form" style="display:none;margin-bottom:.6rem">
+      <div class="field" style="margin-bottom:.5rem">
+        <label>Room Name <span style="color:var(--dim);font-size:.65rem;letter-spacing:0">(optional)</span></label>
+        <input id="room-name-input" type="text" maxlength="28" placeholder="e.g. Friday Night Chaos" autocomplete="off">
+      </div>
+      <div style="display:flex;gap:.5rem">
+        <button class="btn btn-gold" id="create-room-confirm-btn" style="flex:1">Create Room</button>
+        <button class="btn btn-dark" id="create-room-cancel-btn">Cancel</button>
+      </div>
+    </div>
+
     <div class="divider-label">Join a Room</div>
 
     <div id="room-list-container">
@@ -312,6 +359,7 @@ body::before{content:'';position:fixed;inset:0;background:
   <div class="game-title">Hero Party</div>
   <div class="panel">
     <div style="text-align:center;margin-bottom:.5rem">
+      <div id="waiting-room-name" style="font-family:'Cinzel Decorative',cursive;font-size:1.15rem;color:var(--text);margin-bottom:.2rem;display:none"></div>
       <div style="font-family:'Cinzel',serif;font-size:.7rem;color:var(--text2);letter-spacing:.2em">ROOM CODE</div>
       <div id="waiting-room-code" style="font-family:'Cinzel Decorative',cursive;font-size:2rem;color:var(--gold2);letter-spacing:.2em"></div>
     </div>
@@ -435,15 +483,23 @@ body::before{content:'';position:fixed;inset:0;background:
 
 <!-- Dice Roll Modal -->
 <div id="dice-modal" class="modal-overlay hidden">
-  <div class="modal" style="max-width:380px;text-align:center">
+  <div class="modal" style="max-width:400px;text-align:center">
     <h2 id="dice-modal-title">Rolling...</h2>
-    <div id="dice-display" class="dice-display">🎲</div>
+    <div class="two-dice-display">
+      <div id="die1-display" class="die-face">⚀</div>
+      <div class="die-plus">+</div>
+      <div id="die2-display" class="die-face die2">⚀</div>
+    </div>
     <div id="dice-result" class="dice-result"></div>
     <div id="dice-breakdown" class="dice-breakdown"></div>
-    <div id="dice-outcome" style="font-family:'Cinzel',serif;font-size:.9rem;margin-top:.8rem;padding:.5rem;border-radius:4px"></div>
-    <div id="modifier-wait" style="font-size:.78rem;color:var(--text2);margin:.5rem 0;display:none">Waiting for modifier cards...</div>
-    <div class="modal-btns" style="justify-content:center">
-      <button class="btn btn-dark" id="dice-modifier-btn" style="display:none">Play Modifier</button>
+    <div id="modifier-log" class="modifier-log"></div>
+    <div id="dice-outcome" style="font-family:'Cinzel',serif;font-size:.9rem;margin-top:.6rem;padding:.5rem;border-radius:4px"></div>
+    <div class="timer-bar-wrap" id="mod-timer-wrap" style="display:none">
+      <div class="timer-bar-fill" id="mod-timer-fill" style="width:100%"></div>
+    </div>
+    <div id="mod-timer-label" class="timer-label" style="display:none">Waiting for modifiers...</div>
+    <div class="modal-btns" style="justify-content:center;margin-top:.6rem">
+      <button class="btn btn-dark" id="dice-play-mod-btn" style="display:none">🃏 Play Modifier</button>
       <button class="btn btn-gold" id="dice-close-btn" style="display:none">Continue</button>
     </div>
   </div>
@@ -460,14 +516,40 @@ body::before{content:'';position:fixed;inset:0;background:
   </div>
 </div>
 
-<!-- Challenge Modal -->
+<!-- Challenge Banner (shown to opponents when a card is played) -->
+<div id="challenge-banner" class="challenge-banner hidden">
+  <div id="challenge-banner-img" class="challenge-banner-card">
+    <img id="challenge-banner-card-img" src="" alt="">
+  </div>
+  <div class="challenge-banner-text">
+    <div class="challenge-banner-title">⚔ CHALLENGE?</div>
+    <div class="challenge-banner-sub" id="challenge-banner-sub"></div>
+    <div class="timer-bar-wrap" style="margin-top:.4rem"><div class="timer-bar-fill" id="ch-timer-fill" style="width:100%"></div></div>
+    <div id="ch-timer-label" class="timer-label"></div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:.4rem">
+    <button class="btn btn-red" id="do-challenge-btn">⚔ Challenge!</button>
+    <button class="btn btn-dark" id="pass-challenge-btn">Pass</button>
+  </div>
+</div>
+
+<!-- Modifier Banner (shown to all players after a roll) -->
+<div id="modifier-banner" class="modifier-banner hidden">
+  <div class="modifier-banner-info">
+    <div id="mod-banner-title" style="font-size:.8rem;color:var(--gold2)">Modifier Window</div>
+    <div id="mod-banner-sub" style="margin-top:.1rem"></div>
+    <div class="timer-bar-wrap" style="margin-top:.3rem"><div class="timer-bar-fill" id="mb-timer-fill" style="width:100%"></div></div>
+  </div>
+  <div id="mod-banner-cards" class="modifier-banner-cards"></div>
+</div>
+
+<!-- Challenge Flash (full-screen overlay for resolved challenge) -->
 <div id="challenge-flash" class="challenge-flash hidden">
   <div>
     <div class="challenge-text">CHALLENGE!</div>
     <div style="font-family:'Cinzel',serif;color:#fff;font-size:1rem;text-align:center;margin:.5rem 0" id="challenge-info"></div>
     <div style="display:flex;gap:1rem;justify-content:center;margin-top:1rem">
-      <button class="btn btn-red" id="challenge-respond-btn" style="display:none">Roll to Defend</button>
-      <button class="btn btn-dark" id="challenge-watch-btn">Watch</button>
+      <button class="btn btn-dark" id="challenge-watch-btn">Dismiss</button>
     </div>
   </div>
 </div>
@@ -756,26 +838,65 @@ function setMsg(id, text, type='error') {
 }
 function clearMsg(id) { setMsg(id,'',''); }
 
-// ── TOOLTIP ──
+// ── TOOLTIP (mobile-safe, positioned relative to card) ──
 const tooltip = document.getElementById('tooltip');
-document.addEventListener('mousemove', e => {
-  if (!tooltip.classList.contains('hidden')) {
-    let x = e.clientX + 14, y = e.clientY - 10;
-    if (x + 250 > window.innerWidth) x = e.clientX - 260;
-    if (y + 160 > window.innerHeight) y = e.clientY - 160;
-    tooltip.style.left = x + 'px';
-    tooltip.style.top = y + 'px';
-  }
-});
-function showTooltip(card) {
+function showTooltipAt(card, el) {
   if (!card) return;
   document.getElementById('tooltip-name').textContent = card.name;
   document.getElementById('tooltip-type').textContent = card.type;
-  document.getElementById('tooltip-roll').textContent = card.roll ? `Roll: ${card.roll}+` : '';
+  document.getElementById('tooltip-roll').textContent = card.roll ? `Roll needed: ${card.roll}+` : '';
   document.getElementById('tooltip-effect').textContent = card.effect || card.passiveEffect || '';
   tooltip.classList.remove('hidden');
+  // Position after reveal so we know tooltip size
+  requestAnimationFrame(() => {
+    const rect = el.getBoundingClientRect();
+    const ttW = tooltip.offsetWidth || 240;
+    const ttH = tooltip.offsetHeight || 160;
+    const margin = 8;
+    let x = rect.left + rect.width / 2 - ttW / 2;
+    let y = rect.top - ttH - margin;
+    // Clamp X to viewport
+    x = Math.max(margin, Math.min(x, window.innerWidth - ttW - margin));
+    // If above viewport, show below card instead
+    if (y < margin) y = rect.bottom + margin;
+    // If still off bottom, pin to bottom
+    if (y + ttH > window.innerHeight - margin) y = window.innerHeight - ttH - margin;
+    tooltip.style.left = x + 'px';
+    tooltip.style.top = y + 'px';
+  });
 }
 function hideTooltip() { tooltip.classList.add('hidden'); }
+
+// ── CHALLENGE BANNER BUTTONS ──
+document.getElementById('do-challenge-btn').addEventListener('click', async () => {
+  const pending = localGS?.pendingCardPlay;
+  if (!pending || pending.resolved || pending.challengerPCID) return;
+  const me = localGS.players[MY_PCID];
+  const myHand = (me?.hand || []);
+  const challengeCard = myHand.find(c => c.type === 'Challenge');
+  if (!challengeCard) { showNotif('No Challenge card in hand!'); return; }
+
+  const gs = deepClone(localGS);
+  const gsMe = gs.players[MY_PCID];
+  gsMe.hand = gsMe.hand.filter(c => c.uid !== challengeCard.uid);
+  gs.discardPile = gs.discardPile || [];
+  gs.discardPile.push(challengeCard);
+  gs.pendingCardPlay.challengerPCID = MY_PCID;
+  gs.pendingCardPlay.challengerName = gsMe.name;
+  addLog(gs, `⚔ ${gsMe.name} challenges!`);
+  await pushState(gs);
+  document.getElementById('challenge-banner').classList.add('hidden');
+  clearInterval(window._challengeTimerInterval);
+});
+
+document.getElementById('pass-challenge-btn').addEventListener('click', () => {
+  document.getElementById('challenge-banner').classList.add('hidden');
+  clearInterval(window._challengeTimerInterval);
+});
+
+document.getElementById('challenge-watch-btn').addEventListener('click', () => {
+  document.getElementById('challenge-flash').classList.add('hidden');
+});
 
 function makeCardEl(card, opts={}) {
   const el = document.createElement('div');
@@ -786,8 +907,19 @@ function makeCardEl(card, opts={}) {
   img.onerror = () => { img.src = card.type === 'Monster' ? 'images/Monster_Card_Back.png' : 'images/Card_Back.png'; };
   el.appendChild(img);
   el.dataset.uid = card.uid || card.id;
-  el.addEventListener('mouseenter', () => showTooltip(card));
+  // Tooltip — desktop hover
+  el.addEventListener('mouseenter', () => showTooltipAt(card, el));
   el.addEventListener('mouseleave', hideTooltip);
+  // Tooltip — mobile tap (tap to show, tap elsewhere to hide)
+  el.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    if (!tooltip.classList.contains('hidden') && tooltip._card === card) {
+      hideTooltip();
+    } else {
+      tooltip._card = card;
+      showTooltipAt(card, el);
+    }
+  }, { passive: false });
   if (opts.onClick) el.addEventListener('click', opts.onClick);
   return el;
 }
@@ -912,9 +1044,10 @@ function loadRooms() {
     container.innerHTML = '<div class="room-list">' + available.map(([code,r]) => {
       const pcount = Object.keys(r.players||{}).length;
       const inRoom = Object.keys(r.players||{}).includes(MY_PCID);
+      const displayName = r.roomName ? `<span style="color:var(--text)">${r.roomName}</span> <span style="color:var(--dim);font-size:.68rem">(${code})</span>` : `<span class="room-code">${code}</span>`;
       return `<div class="room-item${inRoom?' selected':''}" data-code="${code}">
-        <span class="room-code">${code}</span>
-        <span class="room-players">${pcount}/6 players${inRoom?' (you)':''}</span>
+        <span>${displayName}</span>
+        <span class="room-players">${pcount}/6${inRoom?' (you)':''}</span>
         <button class="btn btn-dark" style="padding:.2rem .5rem;font-size:.65rem">Join</button>
       </div>`;
     }).join('') + '</div>';
@@ -924,7 +1057,24 @@ function loadRooms() {
   });
 }
 
-document.getElementById('create-room-btn').addEventListener('click', createRoom);
+document.getElementById('create-room-btn').addEventListener('click', () => {
+  document.getElementById('create-room-btn').style.display = 'none';
+  document.getElementById('create-room-form').style.display = '';
+  document.getElementById('room-name-input').focus();
+});
+document.getElementById('create-room-cancel-btn').addEventListener('click', () => {
+  document.getElementById('create-room-form').style.display = 'none';
+  document.getElementById('create-room-btn').style.display = '';
+  document.getElementById('room-name-input').value = '';
+});
+document.getElementById('create-room-confirm-btn').addEventListener('click', () => {
+  const roomName = document.getElementById('room-name-input').value.trim();
+  createRoom(roomName);
+});
+document.getElementById('room-name-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') { const roomName = document.getElementById('room-name-input').value.trim(); createRoom(roomName); }
+  if (e.key === 'Escape') document.getElementById('create-room-cancel-btn').click();
+});
 document.getElementById('join-code-btn').addEventListener('click', () => {
   const code = document.getElementById('room-code-input').value.trim().toUpperCase();
   if (code.length === 6) joinRoom(code);
@@ -932,13 +1082,16 @@ document.getElementById('join-code-btn').addEventListener('click', () => {
 });
 document.getElementById('change-name-btn').addEventListener('click', () => showScreen('name-screen'));
 
-async function createRoom() {
+async function createRoom(roomName = '') {
   const code = generateCode(6);
   const roomRef = ref(db, `hp_rooms/${code}`);
   await set(roomRef, {
-    code, host: MY_PCID, status: 'waiting',
+    code,
+    roomName: roomName || null,
+    host: MY_PCID, status: 'waiting',
     players: { [MY_PCID]: { name: myName, pcid: MY_PCID, ready: true } },
     created: Date.now()
+  });
   });
   myRoom = code;
   isHost = true;
@@ -965,6 +1118,10 @@ async function joinRoom(code) {
 function enterWaiting() {
   showScreen('waiting-screen');
   document.getElementById('waiting-room-code').textContent = myRoom;
+  // Reset create room form in lobby for next time
+  document.getElementById('create-room-form').style.display = 'none';
+  document.getElementById('create-room-btn').style.display = '';
+  document.getElementById('room-name-input').value = '';
   if (roomsListener) { off(ref(db,'hp_rooms'),'value',roomsListener); roomsListener=null; }
   listenRoom();
 }
@@ -980,6 +1137,10 @@ function listenRoom() {
     pl.innerHTML = players.map(p =>
       `<span class="waiting-player${p.pcid===MY_PCID?' you':''}">${p.name}${p.pcid===MY_PCID?' (you)':''}</span>`
     ).join('');
+    // Show room name if set
+    const nameEl = document.getElementById('waiting-room-name');
+    if (room.roomName) { nameEl.textContent = room.roomName; nameEl.style.display = ''; }
+    else { nameEl.style.display = 'none'; }
     const startBtn = document.getElementById('start-game-btn');
     isHost = room.host === MY_PCID;
     startBtn.style.display = isHost && players.length >= 2 ? '' : 'none';
@@ -1056,8 +1217,11 @@ let mySelectedTargetPCID = null;
 let mySelectedMonsterUid = null;
 let logCollapsed = false;
 
+let myRoomName = '';
+
 function startLocalGame(room) {
   localGS = room.gameState;
+  myRoomName = room.roomName || '';
   // Log all player names and PCIDs
   const allPlayers = Object.values(localGS.players || {}).map(p => ({ name: p.name, pcid: p.pcid }));
   console.log('%c[ChummyGames] GAME STARTED — All Players:', 'color:#f0c040;font-weight:bold');
@@ -1076,13 +1240,117 @@ function listenRoomForGame() {
     if (room.status === 'waiting') { enterWaiting(); return; }
     if (room.gameState) {
       localGS = room.gameState;
+      if (room.roomName) myRoomName = room.roomName;
       // Log names + PCIDs on every state update
       const allPlayers = Object.values(localGS.players || {}).map(p => ({ name: p.name, pcid: p.pcid }));
       console.log('%c[ChummyGames] STATE UPDATE — Players:', 'color:#90b0ff;font-weight:bold', allPlayers);
       renderGame();
       checkWin();
+
+      // ── Show challenge banner to opponents ──
+      handleChallengeBanner(localGS);
+
+      // ── Show modifier banner to all players (non-roller) ──
+      handleModifierBanner(localGS);
     }
   });
+}
+
+// Challenge banner: shown to players who are NOT the card-player
+function handleChallengeBanner(gs) {
+  const pending = gs.pendingCardPlay;
+  const banner = document.getElementById('challenge-banner');
+  if (!pending || pending.resolved || pending.playedByPCID === MY_PCID || pending.challengerPCID) {
+    banner.classList.add('hidden');
+    clearTimeout(window._challengeTimerTimeout);
+    clearInterval(window._challengeTimerInterval);
+    return;
+  }
+  // I am an opponent — show banner
+  const me = gs.players[MY_PCID];
+  const myHand = me?.hand || [];
+  const hasChallenge = myHand.some(c => c.type === 'Challenge');
+  const card = pending.cardData;
+
+  document.getElementById('challenge-banner-card-img').src = cardImage(card);
+  document.getElementById('challenge-banner-sub').textContent =
+    `${pending.playedByName} plays ${card.name}`;
+  document.getElementById('do-challenge-btn').style.display = hasChallenge ? '' : 'none';
+  banner.classList.remove('hidden');
+
+  // Countdown
+  clearInterval(window._challengeTimerInterval);
+  window._challengeTimerInterval = setInterval(() => {
+    const rem = Math.max(0, pending.expiresAt - Date.now());
+    document.getElementById('ch-timer-fill').style.width = (rem / 8000 * 100) + '%';
+    document.getElementById('ch-timer-label').textContent = `${Math.ceil(rem/1000)}s`;
+    if (rem <= 0) { clearInterval(window._challengeTimerInterval); banner.classList.add('hidden'); }
+  }, 100);
+}
+
+// Modifier banner: shown to all players (including roller) during a roll
+function handleModifierBanner(gs) {
+  const pr = gs.pendingRoll;
+  const banner = document.getElementById('modifier-banner');
+
+  if (!pr || pr.resolved || pr.rollerId === MY_PCID) {
+    // Roller sees the dice modal, not this banner
+    // Non-rollers: hide when done
+    if (!pr || pr.resolved) banner.classList.add('hidden');
+    return;
+  }
+
+  // I am a spectator/non-roller — show modifier banner
+  const me = gs.players[MY_PCID];
+  const myHand = me?.hand || [];
+  const modCards = myHand.filter(c => c.type === 'Modifier');
+
+  document.getElementById('mod-banner-title').textContent =
+    `🎲 ${pr.rollerName} rolled [${pr.die1}+${pr.die2}]=${pr.rawRoll}${pr.staticBonus?`+${pr.staticBonus}`:''}`;
+  let subText = `Total: ${pr.currentTotal} (need ${pr.target}+)`;
+  if ((pr.modifiers||[]).length) {
+    subText += ' | Mods: ' + pr.modifiers.map(m=>`${m.playerName} ${m.delta>=0?'+':''}${m.delta}`).join(', ');
+  }
+  document.getElementById('mod-banner-sub').textContent = subText;
+
+  // Show my modifier cards
+  const cardsEl = document.getElementById('mod-banner-cards');
+  cardsEl.innerHTML = '';
+  modCards.forEach(card => {
+    const c = makeCardEl(card, {sm: true, onClick: async () => {
+      let delta = card.bonus;
+      if (card.penalty !== undefined && card.penalty !== card.bonus) {
+        delta = await askModifierPolarity(card);
+      }
+      // Apply modifier as non-roller
+      const freshGS = deepClone(localGS);
+      const freshMe = freshGS.players[MY_PCID];
+      freshMe.hand = freshMe.hand || [];
+      freshMe.hand = freshMe.hand.filter(c2 => c2.uid !== card.uid);
+      freshGS.discardPile = freshGS.discardPile || [];
+      freshGS.discardPile.push(card);
+      const proll = freshGS.pendingRoll;
+      if (!proll) return;
+      const newTotal = proll.currentTotal + delta;
+      proll.modifiers = proll.modifiers || [];
+      proll.modifiers.push({ pcid: MY_PCID, playerName: freshMe.name, cardName: card.name, delta, newTotal });
+      proll.currentTotal = newTotal;
+      proll.expiresAt = Date.now() + 8000;
+      addLog(freshGS, `🃏 ${freshMe.name} plays ${card.name}: ${delta>=0?'+':''}${delta} → total now ${newTotal}`);
+      await pushState(freshGS);
+    }});
+    cardsEl.appendChild(c);
+  });
+
+  banner.classList.remove('hidden');
+
+  // Countdown (just visual, roller resolves)
+  clearInterval(window._modBannerInterval);
+  window._modBannerInterval = setInterval(() => {
+    const rem = Math.max(0, pr.expiresAt - Date.now());
+    document.getElementById('mb-timer-fill').style.width = (rem / 8000 * 100) + '%';
+    if (rem <= 0) { clearInterval(window._modBannerInterval); banner.classList.add('hidden'); }
+  }, 100);
 }
 
 function renderGame() {
@@ -1093,7 +1361,7 @@ function renderGame() {
   const isMyTurn = gs.currentTurn === MY_PCID;
 
   // Top bar
-  document.getElementById('top-room-code').innerHTML = `Room: <span>${myRoom}</span>`;
+  document.getElementById('top-room-code').innerHTML = `Room: <span>${myRoomName ? myRoomName + ' (' + myRoom + ')' : myRoom}</span>`;
   const turnName = gs.players[gs.currentTurn]?.name || '?';
   document.getElementById('top-turn-info').innerHTML = `Turn: <span>${turnName}</span>`;
   const ap = isMyTurn ? (me.actionPoints ?? 3) : 0;
@@ -1138,7 +1406,7 @@ function renderMonsters(gs) {
     div.className = 'monster-card';
     div.innerHTML = `<img src="${cardImage(m)}" alt="${m.name}" onerror="this.src='images/Monster_Card_Back.png'">
       <div class="monster-label">${m.name}<br><span style="color:var(--dim)">Win:${m.winRoll}+</span></div>`;
-    div.addEventListener('mouseenter', () => showTooltip({...m, effect: `Req: ${m.require} | Win:${m.winRoll}+ → ${m.winEffect} | Lose:≤${m.loseRoll} → ${m.loseEffect}`}));
+    div.addEventListener('mouseenter', () => showTooltipAt({...m, effect: `Req: ${m.require} | Win:${m.winRoll}+ → ${m.winEffect} | Lose:≤${m.loseRoll} → ${m.loseEffect}`}, div));
     div.addEventListener('mouseleave', hideTooltip);
     div.addEventListener('click', () => { mySelectedMonsterUid = m.uid; renderGame(); });
     if (mySelectedMonsterUid === m.uid) div.style.outline = '2px solid var(--gold2)';
@@ -1352,24 +1620,100 @@ async function playCard(gs, card) {
   me.actionPoints--;
   mySelectedCardUid = null;
 
-  if (card.type.startsWith('Hero')) {
-    me.party.push(card);
-    addLog(gs, `${me.name} plays ${card.name} to their Party.`);
-    await pushState(gs);
-    // Offer to roll immediately
-    if (me.actionPoints > 0) {
-      const roll = confirm(`Roll to use ${card.name}'s effect now? (costs 1 AP)`);
-      if (roll) {
+  // ── CHALLENGE WINDOW for Hero / Item / Magic ──
+  if (card.type.startsWith('Hero') || card.type === 'Item' || card.type === 'Cursed Item' || card.type === 'Magic') {
+    // Check Iron Resolve (cannot be challenged)
+    const isUnchallenged = me.statusEffects?.ironResolve;
+    if (!isUnchallenged) {
+      // Write pending card play to Firebase so others can challenge
+      gs.pendingCardPlay = {
+        cardData: card,
+        playedByPCID: MY_PCID,
+        playedByName: me.name,
+        expiresAt: Date.now() + 8000,
+        challengerPCID: null,
+        challengerName: null,
+        resolved: false
+      };
+      addLog(gs, `${me.name} plays ${card.name} — 8s challenge window open!`);
+      await pushState(gs);
+
+      const challengeResult = await waitForChallengeWindow();
+      if (challengeResult.challenged) {
+        // Run challenge rolls
         const freshGS = deepClone(localGS);
-        freshGS.players[MY_PCID].actionPoints--;
-        if (!(freshGS.players[MY_PCID].rolledHeroes)) freshGS.players[MY_PCID].rolledHeroes=[];
-        freshGS.players[MY_PCID].rolledHeroes.push(card.uid);
-        await rollForHero(freshGS, card, true);
+        const freshMe = freshGS.players[MY_PCID];
+        freshMe.hand = freshMe.hand || []; freshMe.party = freshMe.party || [];
+        freshMe.equippedItems = freshMe.equippedItems || {}; freshMe.slayedMonsters = freshMe.slayedMonsters || [];
+        freshGS.pendingCardPlay = null;
+
+        const challengerPCID = challengeResult.challengerPCID;
+        const challenger = freshGS.players[challengerPCID];
+        addLog(freshGS, `⚔ ${challenger?.name} CHALLENGES ${card.name}!`);
+
+        // Both roll
+        const myRoll = rollDice();
+        const theirRoll = rollDice();
+        let myBonus = freshMe.partyLeader?.type === 'Party Leader: Fighter' ? 2 : 0;
+        (freshMe.slayedMonsters||[]).forEach(m => { if (m.name==='Titan Wyvern') myBonus+=1; });
+        let theirBonus = challenger?.partyLeader?.type === 'Party Leader: Fighter' ? 2 : 0;
+
+        const myTotal = myRoll.total + myBonus;
+        const theirTotal = theirRoll.total + theirBonus;
+
+        addLog(freshGS, `${freshMe.name} rolls [${myRoll.die1}+${myRoll.die2}]=${myTotal} vs ${challenger?.name} [${theirRoll.die1}+${theirRoll.die2}]=${theirTotal}`);
+
+        // Show dice to active player
+        await showDiceModalChallenge(freshMe.name, myRoll, myBonus, myTotal, challenger?.name, theirRoll, theirBonus, theirTotal);
+
+        if (myTotal >= theirTotal) {
+          // Card player wins — card resolves
+          addLog(freshGS, `✅ ${freshMe.name} wins the challenge! ${card.name} resolves.`);
+          document.getElementById('challenge-flash').classList.remove('hidden');
+          document.getElementById('challenge-info').textContent = `${freshMe.name} wins! Card resolves.`;
+          setTimeout(() => document.getElementById('challenge-flash').classList.add('hidden'), 2000);
+          await pushState(freshGS);
+          await applyCardEffect(freshGS, card);
+        } else {
+          // Challenger wins — card is cancelled
+          addLog(freshGS, `❌ ${challenger?.name} wins the challenge! ${card.name} is cancelled.`);
+          freshGS.discardPile.push(card);
+          document.getElementById('challenge-flash').classList.remove('hidden');
+          document.getElementById('challenge-info').textContent = `${challenger?.name} wins! Card cancelled.`;
+          setTimeout(() => document.getElementById('challenge-flash').classList.add('hidden'), 2000);
+          await pushState(freshGS);
+        }
+        return;
+      } else {
+        // No challenge — clear pending and apply card
+        const freshGS = deepClone(localGS);
+        freshGS.pendingCardPlay = null;
+        addLog(freshGS, `No challenge — ${card.name} resolves.`);
+        await pushState(freshGS);
+        await applyCardEffect(freshGS, card);
+        return;
       }
     }
   }
+
+  await applyCardEffect(gs, card);
+}
+
+// Apply the actual card effect (after challenge window resolves with no challenge, or unchallenged)
+async function applyCardEffect(gs, card) {
+  const me = gs.players[MY_PCID];
+  me.hand = me.hand || []; me.party = me.party || [];
+  me.equippedItems = me.equippedItems || {}; me.slayedMonsters = me.slayedMonsters || [];
+  me.rolledHeroes = me.rolledHeroes || []; me.statusEffects = me.statusEffects || {};
+
+  if (card.type.startsWith('Hero')) {
+    me.party.push(card);
+    addLog(gs, `${me.name} adds ${card.name} to their Party.`);
+    // FREE roll on first play (no AP cost)
+    await pushState(gs);
+    await offerFreeHeroRoll(card);
+  }
   else if (card.type === 'Item' || card.type === 'Cursed Item') {
-    // Need to select a hero to equip
     const hero = me.party.length ? await selectHeroInParty(gs, MY_PCID, `Equip ${card.name} to which Hero?`) : null;
     if (hero) {
       if (!me.equippedItems) me.equippedItems = {};
@@ -1382,15 +1726,12 @@ async function playCard(gs, card) {
     await pushState(gs);
   }
   else if (card.type === 'Magic') {
-    addLog(gs, `${me.name} plays ${card.name}.`);
     gs.discardPile.push(card);
     await applyMagicEffect(gs, card);
   }
   else if (card.type === 'Modifier') {
-    // Modifier played after a roll — can't play outside of roll context here
-    showNotif('Play Modifier cards during a dice roll!');
-    me.hand.push(card); // return
-    me.actionPoints++;
+    showNotif('Play Modifier cards during a dice roll window!');
+    me.hand.push(card); me.actionPoints++;
     await pushState(gs);
   }
   else if (card.type === 'Challenge') {
@@ -1398,6 +1739,47 @@ async function playCard(gs, card) {
     me.hand.push(card); me.actionPoints++;
     await pushState(gs);
   }
+}
+
+// Offer a free roll immediately after playing a Hero card
+async function offerFreeHeroRoll(card) {
+  return new Promise(resolve => {
+    // Show a floating prompt with Roll / Skip buttons
+    const el = document.createElement('div');
+    el.style.cssText = `position:fixed;bottom:100px;left:50%;transform:translateX(-50%);
+      background:linear-gradient(135deg,var(--panel),var(--panel2));
+      border:1px solid var(--gold2);border-radius:8px;padding:.8rem 1.2rem;
+      z-index:300;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,.8);
+      font-family:Cinzel,serif;min-width:260px`;
+    el.innerHTML = `
+      <div style="font-size:.75rem;color:var(--gold2);letter-spacing:.1em;margin-bottom:.4rem">FREE ROLL — ${card.name}</div>
+      <div style="font-size:.7rem;color:var(--text2);margin-bottom:.6rem">Roll for effect at no AP cost?</div>
+      <div style="display:flex;gap:.6rem;justify-content:center">
+        <button class="btn btn-gold" id="free-roll-yes" style="padding:.35rem .8rem;font-size:.7rem">🎲 Roll Now</button>
+        <button class="btn btn-dark" id="free-roll-no" style="padding:.35rem .8rem;font-size:.7rem">Skip</button>
+      </div>`;
+    document.body.appendChild(el);
+
+    const cleanup = () => { if (el.parentNode) el.remove(); };
+    el.querySelector('#free-roll-yes').addEventListener('click', async () => {
+      cleanup();
+      // Pull fresh state and roll for free
+      const freshGS = deepClone(localGS);
+      const freshMe = freshGS.players[MY_PCID];
+      freshMe.hand = freshMe.hand || []; freshMe.party = freshMe.party || [];
+      freshMe.equippedItems = freshMe.equippedItems || {}; freshMe.slayedMonsters = freshMe.slayedMonsters || [];
+      freshMe.rolledHeroes = freshMe.rolledHeroes || []; freshMe.statusEffects = freshMe.statusEffects || {};
+      const hero = freshMe.party.find(h => h.uid === card.uid);
+      if (hero && !freshMe.rolledHeroes.includes(hero.uid)) {
+        await rollForHero(freshGS, hero, true); // skipDeduct=true (free)
+      }
+      resolve();
+    });
+    el.querySelector('#free-roll-no').addEventListener('click', () => { cleanup(); resolve(); });
+
+    // Auto-expire after 15 seconds
+    setTimeout(() => { cleanup(); resolve(); }, 15000);
+  });
 }
 
 async function rollForHero(gs, hero, skipDeduct=false) {
@@ -1409,46 +1791,59 @@ async function rollForHero(gs, hero, skipDeduct=false) {
   me.rolledHeroes = me.rolledHeroes || [];
   me.statusEffects = me.statusEffects || {};
   if (!skipDeduct) { me.actionPoints--; }
-  if (!me.rolledHeroes) me.rolledHeroes = [];
   me.rolledHeroes.push(hero.uid);
 
-  const roll = rollDice();
-  let bonus = 0;
-  // Check item bonuses
+  const { die1, die2, total: rawRoll } = rollDice();
+  let staticBonus = 0;
   const equipped = me.equippedItems?.[hero.uid];
-  if (equipped?.name === 'Really Big Ring') bonus += 2;
-  if (equipped?.name === "Curse of the Snake's Eyes") bonus -= 2;
-  // Check status effects
-  if (me.statusEffects?.enchanted) bonus += 2;
-  if (me.statusEffects?.vibrantGlow) bonus += 5;
-  if (me.statusEffects?.wiseShield) bonus += 3;
-  // Check leader
-  if (me.partyLeader?.type === 'Party Leader: Bard') bonus += 1;
-  // Check monster passives
+  if (equipped?.name === 'Really Big Ring') staticBonus += 2;
+  if (equipped?.name === "Curse of the Snake's Eyes") staticBonus -= 2;
+  if (me.statusEffects?.enchanted) staticBonus += 2;
+  if (me.statusEffects?.vibrantGlow) staticBonus += 5;
+  if (me.statusEffects?.wiseShield) staticBonus += 3;
+  if (me.partyLeader?.type === 'Party Leader: Bard') staticBonus += 1;
   (me.slayedMonsters||[]).forEach(m => {
-    if (m.name==='Anuran Cauldron') bonus+=1;
-    if (m.name==='Dark Dragon King') bonus+=1;
+    if (m.name==='Anuran Cauldron') staticBonus+=1;
+    if (m.name==='Dark Dragon King') staticBonus+=1;
   });
 
-  const total = roll + bonus;
-  const target = hero.roll;
-  const success = total >= target;
+  const currentTotal = rawRoll + staticBonus;
+  addLog(gs, `${me.name} rolls for ${hero.name}: [${die1}+${die2}]${staticBonus?`${staticBonus>=0?'+':''}${staticBonus}`:''}=${currentTotal} (need ${hero.roll}+)`);
 
-  addLog(gs, `${me.name} rolls for ${hero.name}: ${roll}${bonus?`${bonus>=0?'+':''}${bonus}`:''}=${total} (need ${target}+) → ${success?'✅ SUCCESS':'❌ FAIL'}`);
+  // Write pendingRoll to Firebase so all players can see and modify
+  gs.pendingRoll = {
+    rollerId: MY_PCID, rollerName: me.name,
+    context: 'hero', contextName: hero.name,
+    die1, die2, rawRoll, staticBonus,
+    modifiers: [], currentTotal,
+    target: hero.roll, expiresAt: Date.now() + 8000, resolved: false
+  };
+  await pushState(gs);
 
-  await showDiceModal(`Rolling for ${hero.name}`, roll, bonus, total, target, success, hero.effect);
+  // Wait for modifier window
+  const finalTotal = await waitForModifierWindow(gs.pendingRoll);
+  const success = finalTotal >= hero.roll;
+
+  // Resolve
+  const freshGS = deepClone(localGS);
+  const freshMe = freshGS.players[MY_PCID];
+  freshMe.hand = freshMe.hand || []; freshMe.party = freshMe.party || [];
+  freshMe.equippedItems = freshMe.equippedItems || {}; freshMe.slayedMonsters = freshMe.slayedMonsters || [];
+  freshMe.statusEffects = freshMe.statusEffects || {};
+  freshGS.pendingRoll = null;
+
+  addLog(freshGS, `${freshMe.name} → ${hero.name} final: ${finalTotal} (need ${hero.roll}+) → ${success?'✅ SUCCESS':'❌ FAIL'}`);
 
   if (success) {
-    await applyHeroEffect(gs, hero);
+    await applyHeroEffect(freshGS, hero);
   } else {
-    // Check Particularly Rusty Coin
-    if (equipped?.name === 'Particularly Rusty Coin') {
-      drawCards(gs, MY_PCID, 1);
-      addLog(gs, `${me.name} draws a card from Particularly Rusty Coin.`);
+    const eq2 = freshMe.equippedItems?.[hero.uid];
+    if (eq2?.name === 'Particularly Rusty Coin') {
+      drawCards(freshGS, MY_PCID, 1);
+      addLog(freshGS, `${freshMe.name} draws a card from Particularly Rusty Coin.`);
     }
-    // Sealing Key prevents use anyway (we just let the roll happen but don't apply effect)
   }
-  await pushState(gs);
+  await pushState(freshGS);
 }
 
 async function attackMonster(gs, monster) {
@@ -1459,67 +1854,71 @@ async function attackMonster(gs, monster) {
   me.slayedMonsters = me.slayedMonsters || [];
   me.rolledHeroes = me.rolledHeroes || [];
   me.statusEffects = me.statusEffects || {};
-  // Check requirements
-  const req = monster.require;
+
   const partyClasses = getPartyClasses(me);
-  if (!meetsRequirement(req, partyClasses)) {
-    showNotif(`Need ${formatReq(req)} to attack ${monster.name}!`);
+  if (!meetsRequirement(monster.require, partyClasses)) {
+    showNotif(`Need ${formatReq(monster.require)} to attack ${monster.name}!`);
     return;
   }
   me.actionPoints -= 2;
-  const roll = rollDice();
-  let bonus = 0;
-  if (me.partyLeader?.type === 'Party Leader: Ranger') bonus += 1;
-  (me.slayedMonsters||[]).forEach(m => {
-    if (m.name==='Anuran Cauldron') bonus+=1;
-  });
-  if (me.statusEffects?.enchanted) bonus += 2;
-  const total = roll + bonus;
+  const { die1, die2, total: rawRoll } = rollDice();
+  let staticBonus = 0;
+  if (me.partyLeader?.type === 'Party Leader: Ranger') staticBonus += 1;
+  (me.slayedMonsters||[]).forEach(m => { if (m.name==='Anuran Cauldron') staticBonus+=1; });
+  if (me.statusEffects?.enchanted) staticBonus += 2;
 
-  addLog(gs, `${me.name} attacks ${monster.name}: rolled ${roll}${bonus?`+${bonus}`:''}=${total}`);
+  const currentTotal = rawRoll + staticBonus;
+  addLog(gs, `${me.name} attacks ${monster.name}: [${die1}+${die2}]${staticBonus?`+${staticBonus}`:''}=${currentTotal}`);
 
-  await showDiceModal(`Attacking ${monster.name}`, roll, bonus, total, monster.winRoll,
-    total >= monster.winRoll, `Win:${monster.winRoll}+ | Lose:≤${monster.loseRoll}`);
+  gs.pendingRoll = {
+    rollerId: MY_PCID, rollerName: me.name,
+    context: 'attack', contextName: monster.name,
+    die1, die2, rawRoll, staticBonus,
+    modifiers: [], currentTotal,
+    target: monster.winRoll, expiresAt: Date.now() + 8000, resolved: false
+  };
+  await pushState(gs);
 
-  if (total >= monster.winRoll) {
-    // WIN
-    gs.monsterRow = gs.monsterRow.filter(m => m.uid !== monster.uid);
-    me.slayedMonsters = me.slayedMonsters || [];
-    me.slayedMonsters.push(monster);
-    if (monster.winEffect.includes('DRAW 2')) drawCards(gs, MY_PCID, 2);
-    else if (monster.winEffect.includes('DRAW')) drawCards(gs, MY_PCID, 1);
-    addLog(gs, `🐉 ${me.name} slays ${monster.name}! Gained passive: ${monster.passiveEffect}`);
-    // Replace from reserve
-    if (gs.monsterReserve?.length) {
-      gs.monsterRow.push(gs.monsterReserve.shift());
-    }
-  } else if (total <= monster.loseRoll) {
-    // LOSE
-    addLog(gs, `${me.name} loses against ${monster.name}! ${monster.loseEffect}`);
+  const finalTotal = await waitForModifierWindow(gs.pendingRoll);
+
+  // Re-fetch fresh state after modifier window
+  const freshGS = deepClone(localGS);
+  const freshMe = freshGS.players[MY_PCID];
+  freshMe.hand = freshMe.hand || []; freshMe.party = freshMe.party || [];
+  freshMe.equippedItems = freshMe.equippedItems || {}; freshMe.slayedMonsters = freshMe.slayedMonsters || [];
+  freshGS.pendingRoll = null;
+
+  addLog(freshGS, `${freshMe.name} attack on ${monster.name}: final ${finalTotal} (win:${monster.winRoll}+, lose:≤${monster.loseRoll})`);
+
+  if (finalTotal >= monster.winRoll) {
+    freshGS.monsterRow = freshGS.monsterRow.filter(m => m.uid !== monster.uid);
+    freshMe.slayedMonsters = freshMe.slayedMonsters || [];
+    freshMe.slayedMonsters.push(monster);
+    if (monster.winEffect.includes('DRAW 2')) drawCards(freshGS, MY_PCID, 2);
+    else if (monster.winEffect.includes('DRAW')) drawCards(freshGS, MY_PCID, 1);
+    addLog(freshGS, `🐉 ${freshMe.name} slays ${monster.name}! Passive: ${monster.passiveEffect}`);
+    if (freshGS.monsterReserve?.length) freshGS.monsterRow.push(freshGS.monsterReserve.shift());
+  } else if (finalTotal <= monster.loseRoll) {
+    addLog(freshGS, `${freshMe.name} loses! ${monster.loseEffect}`);
     if (monster.loseEffect.includes('SACRIFICE')) {
-      if (me.party.length > 0) {
-        // Auto sacrifice first hero (simplified)
-        const sacrificed = me.party.shift();
-        gs.discardPile.push(sacrificed);
-        addLog(gs, `${me.name} sacrifices ${sacrificed.name}.`);
+      if (freshMe.party.length > 0) {
+        const sacrificed = freshMe.party.shift();
+        freshGS.discardPile.push(sacrificed);
+        addLog(freshGS, `${freshMe.name} sacrifices ${sacrificed.name}.`);
       }
     } else if (monster.loseEffect.includes('DISCARD 2')) {
-      for (let i = 0; i < 2 && me.hand.length; i++) {
-        gs.discardPile.push(me.hand.shift());
-      }
+      for (let i = 0; i < 2 && freshMe.hand.length; i++) freshGS.discardPile.push(freshMe.hand.shift());
     } else if (monster.loseEffect.includes('SLAY')) {
-      // For Dracos: losing means you slay it but with penalty
-      gs.monsterRow = gs.monsterRow.filter(m => m.uid !== monster.uid);
-      me.slayedMonsters = me.slayedMonsters || [];
-      me.slayedMonsters.push(monster);
-      if (gs.monsterReserve?.length) gs.monsterRow.push(gs.monsterReserve.shift());
+      freshGS.monsterRow = freshGS.monsterRow.filter(m => m.uid !== monster.uid);
+      freshMe.slayedMonsters.push(monster);
+      if (freshGS.monsterReserve?.length) freshGS.monsterRow.push(freshGS.monsterReserve.shift());
     }
   } else {
-    addLog(gs, `${me.name}'s attack on ${monster.name} had no effect.`);
+    addLog(freshGS, `${freshMe.name}'s attack had no effect.`);
   }
 
   mySelectedMonsterUid = null;
-  await pushState(gs);
+  await pushState(freshGS);
 }
 
 // ── HERO EFFECTS (simplified but functional) ──
@@ -1637,7 +2036,12 @@ function formatReq(req) {
 }
 
 function rollDice() {
-  return Math.floor(Math.random() * 6) + Math.floor(Math.random() * 6) + 2; // 2d6
+  const die1 = Math.floor(Math.random() * 6) + 1;
+  const die2 = Math.floor(Math.random() * 6) + 1;
+  return { die1, die2, total: die1 + die2 };
+}
+function dieFace(n) {
+  return ['⚀','⚁','⚂','⚃','⚄','⚅'][n - 1] || '🎲';
 }
 
 function addLog(gs, msg) {
@@ -1654,15 +2058,18 @@ function deepClone(obj) { return JSON.parse(JSON.stringify(obj)); }
 
 async function endTurn() {
   if (!localGS || localGS.currentTurn !== MY_PCID) return;
+  const me = localGS.players[MY_PCID];
+  const ap = me?.actionPoints ?? 0;
+  if (ap > 0) {
+    showNotif(`You still have ${ap} Action Point${ap>1?'s':''} — use them or redraw before ending!`);
+    return;
+  }
   const gs = deepClone(localGS);
-  const me = gs.players[MY_PCID];
-  // Clear turn-specific status
-  me.rolledHeroes = [];
-  me.actionPoints = 3;
-  // Advance turn
+  const gsMe = gs.players[MY_PCID];
+  gsMe.rolledHeroes = [];
+  gsMe.actionPoints = 0;
   gs.currentTurnIdx = (gs.currentTurnIdx + 1) % gs.turnOrder.length;
   gs.currentTurn = gs.turnOrder[gs.currentTurnIdx];
-  // Check Mega Slime bonus AP
   const nextPlayer = gs.players[gs.currentTurn];
   if (nextPlayer) {
     nextPlayer.hand = nextPlayer.hand || [];
@@ -1672,16 +2079,11 @@ async function endTurn() {
     nextPlayer.rolledHeroes = [];
     nextPlayer.statusEffects = nextPlayer.statusEffects || {};
   }
-  if (nextPlayer?.slayedMonsters?.some(m => m.name === 'Mega Slime')) {
-    nextPlayer.actionPoints = 4;
-  } else {
-    nextPlayer.actionPoints = 3;
-  }
-  // Clear status effects at turn end
-  if (me.statusEffects) {
-    delete me.statusEffects.vibrantGlow;
-    delete me.statusEffects.wiseShield;
-    delete me.statusEffects.ironResolve;
+  nextPlayer.actionPoints = nextPlayer?.slayedMonsters?.some(m => m.name === 'Mega Slime') ? 4 : 3;
+  if (gsMe.statusEffects) {
+    delete gsMe.statusEffects.vibrantGlow;
+    delete gsMe.statusEffects.wiseShield;
+    delete gsMe.statusEffects.ironResolve;
   }
   addLog(gs, `--- ${nextPlayer?.name}'s turn begins ---`);
   await pushState(gs);
@@ -1693,23 +2095,249 @@ async function endTurn() {
 // ════════════════════════════════════════
 // DICE MODAL
 // ════════════════════════════════════════
-async function showDiceModal(title, roll, bonus, total, target, success, effectText) {
+
+// Show dice result for the local player (roller sees this during modifier window)
+function updateDiceModal(pendingRoll) {
+  const modal = document.getElementById('dice-modal');
+  const { die1, die2, rawRoll, staticBonus, modifiers, currentTotal, target, contextName, context } = pendingRoll;
+  const label = context === 'hero' ? `Rolling for ${contextName}` : `Attacking ${contextName}`;
+  document.getElementById('dice-modal-title').textContent = label;
+
+  // Force re-animation by replacing elements
+  const d1 = document.getElementById('die1-display');
+  const d2 = document.getElementById('die2-display');
+  d1.textContent = dieFace(die1);
+  d2.textContent = dieFace(die2);
+  d1.style.animation = 'none'; d2.style.animation = 'none';
+  setTimeout(() => { d1.style.animation=''; d2.style.animation=''; }, 10);
+
+  document.getElementById('dice-result').textContent = currentTotal;
+
+  let breakdown = `[${die1} + ${die2}] = ${rawRoll}`;
+  if (staticBonus) breakdown += ` ${staticBonus >= 0 ? '+' : ''}${staticBonus} (bonuses) = ${rawRoll + staticBonus}`;
+  document.getElementById('dice-breakdown').textContent = breakdown;
+
+  // Modifier log
+  const logEl = document.getElementById('modifier-log');
+  logEl.innerHTML = (modifiers||[]).map(m => {
+    const pos = m.delta >= 0;
+    return `<div class="modifier-entry ${pos?'pos':'neg'}">${m.playerName} plays ${m.cardName}: ${pos?'+':''}${m.delta} → total now ${m.newTotal}</div>`;
+  }).join('');
+
+  // Outcome preview
+  const outcome = document.getElementById('dice-outcome');
+  const success = currentTotal >= target;
+  outcome.textContent = success ? `✅ ${currentTotal} ≥ ${target} — Success!` : `❌ ${currentTotal} < ${target} — Fail (need ${target}+)`;
+  outcome.style.background = success ? 'rgba(20,100,30,.3)' : 'rgba(150,20,20,.3)';
+  outcome.style.color = success ? '#90ff90' : '#ff9090';
+
+  modal.classList.remove('hidden');
+}
+
+// Show a challenge roll result to the active player
+async function showDiceModalChallenge(myName, myRoll, myBonus, myTotal, theirName, theirRoll, theirBonus, theirTotal) {
   return new Promise(resolve => {
     const modal = document.getElementById('dice-modal');
-    document.getElementById('dice-modal-title').textContent = title;
-    const emoji = ['⚀','⚁','⚂','⚃','⚄','⚅'];
-    document.getElementById('dice-display').textContent = emoji[Math.min(5,Math.floor(roll/2-1))]||'🎲';
-    document.getElementById('dice-result').textContent = total;
+    document.getElementById('dice-modal-title').textContent = '⚔ Challenge Roll!';
+    const d1 = document.getElementById('die1-display');
+    const d2 = document.getElementById('die2-display');
+    d1.textContent = dieFace(myRoll.die1); d2.textContent = dieFace(myRoll.die2);
+    document.getElementById('dice-result').textContent = myTotal;
     document.getElementById('dice-breakdown').textContent =
-      bonus ? `${roll} ${bonus>=0?'+':''}${bonus} = ${total}` : `Rolled: ${total}`;
+      `${myName}: [${myRoll.die1}+${myRoll.die2}]${myBonus?`+${myBonus}`:''}=${myTotal}  vs  ${theirName}: [${theirRoll.die1}+${theirRoll.die2}]${theirBonus?`+${theirBonus}`:''}=${theirTotal}`;
+    document.getElementById('modifier-log').innerHTML = '';
     const outcome = document.getElementById('dice-outcome');
-    outcome.textContent = success ? `✅ Success! (Need ${target}+)` : `❌ Failed (Need ${target}+)`;
-    outcome.style.background = success ? 'rgba(20,100,30,.3)' : 'rgba(150,20,20,.3)';
-    outcome.style.color = success ? '#90ff90' : '#ff9090';
-    if (effectText) document.getElementById('dice-breakdown').textContent += ` | ${effectText.substring(0,60)}`;
-    document.getElementById('dice-close-btn').style.display = '';
-    document.getElementById('dice-close-btn').onclick = () => { modal.classList.add('hidden'); resolve(); };
+    const iWon = myTotal >= theirTotal;
+    outcome.textContent = iWon ? `✅ You win the challenge!` : `❌ You lose the challenge!`;
+    outcome.style.background = iWon ? 'rgba(20,100,30,.3)' : 'rgba(150,20,20,.3)';
+    outcome.style.color = iWon ? '#90ff90' : '#ff9090';
+    document.getElementById('mod-timer-wrap').style.display = 'none';
+    document.getElementById('mod-timer-label').style.display = 'none';
+    document.getElementById('dice-play-mod-btn').style.display = 'none';
+    const closeBtn = document.getElementById('dice-close-btn');
+    closeBtn.style.display = ''; closeBtn.textContent = 'Continue';
+    closeBtn.onclick = () => { modal.classList.add('hidden'); resolve(); };
     modal.classList.remove('hidden');
+  });
+}
+
+// ─── MODIFIER WINDOW (8 seconds, all players can modify) ───
+// Returns the final total after all modifiers are applied
+async function waitForModifierWindow(pendingRollSnapshot) {
+  return new Promise((resolve) => {
+    const windowMs = 8000;
+    let currentPR = { ...pendingRollSnapshot };
+    let expiresAt = currentPR.expiresAt;
+    let timerInterval;
+    let resolved = false;
+    let resolveTimeout;
+
+    const pendingRollRef = ref(db, `hp_rooms/${myRoom}/gameState/pendingRoll`);
+    const myHand = localGS?.players?.[MY_PCID]?.hand || [];
+    const hasModifier = myHand.some(c => c.type === 'Modifier');
+
+    // Show dice modal with timer
+    updateDiceModal(currentPR);
+    document.getElementById('mod-timer-wrap').style.display = '';
+    document.getElementById('mod-timer-label').style.display = '';
+    document.getElementById('dice-close-btn').style.display = 'none';
+    document.getElementById('dice-play-mod-btn').style.display = hasModifier ? '' : 'none';
+
+    const scheduleResolve = () => {
+      clearTimeout(resolveTimeout);
+      clearInterval(timerInterval);
+      const remaining = expiresAt - Date.now();
+      if (remaining <= 0) { finish(); return; }
+
+      // Countdown bar
+      timerInterval = setInterval(() => {
+        const rem = expiresAt - Date.now();
+        const pct = Math.max(0, rem / windowMs * 100);
+        document.getElementById('mod-timer-fill').style.width = pct + '%';
+        document.getElementById('mod-timer-label').textContent = `Modifier window: ${Math.ceil(rem/1000)}s`;
+        if (rem <= 0) { clearInterval(timerInterval); finish(); }
+      }, 100);
+
+      resolveTimeout = setTimeout(finish, remaining);
+    };
+
+    scheduleResolve();
+
+    // Firebase listener for modifier plays
+    const fbListener = onValue(pendingRollRef, snap => {
+      const data = snap.val();
+      if (!data || data.resolved) return;
+      if (data.expiresAt !== expiresAt) {
+        // Someone played a modifier — reset timer
+        expiresAt = data.expiresAt;
+        currentPR = data;
+        updateDiceModal(currentPR);
+        // Update modifier button based on current hand in localGS
+        const updatedHand = localGS?.players?.[MY_PCID]?.hand || [];
+        document.getElementById('dice-play-mod-btn').style.display =
+          updatedHand.some(c => c.type === 'Modifier') ? '' : 'none';
+        scheduleResolve();
+      }
+    });
+
+    // Play modifier button handler (for this player)
+    document.getElementById('dice-play-mod-btn').onclick = async () => {
+      const gs = deepClone(localGS);
+      const me = gs.players[MY_PCID];
+      me.hand = me.hand || [];
+      const modCards = me.hand.filter(c => c.type === 'Modifier');
+      if (!modCards.length) { showNotif('No Modifier cards in hand!'); return; }
+
+      // Pick which modifier
+      openModal('Choose a Modifier Card', 'Play this modifier on the current roll:', modCards, async (modCard) => {
+        if (!modCard) return;
+        // Ask +/- if the card has both options
+        let delta = modCard.bonus;
+        if (modCard.penalty !== undefined && modCard.penalty !== modCard.bonus) {
+          delta = await askModifierPolarity(modCard);
+        }
+
+        const freshGS = deepClone(localGS);
+        const freshMe = freshGS.players[MY_PCID];
+        freshMe.hand = freshMe.hand || [];
+        freshMe.hand = freshMe.hand.filter(c => c.uid !== modCard.uid);
+        freshGS.discardPile = freshGS.discardPile || [];
+        freshGS.discardPile.push(modCard);
+
+        const pr = freshGS.pendingRoll;
+        if (!pr) return;
+        const newTotal = pr.currentTotal + delta;
+        pr.modifiers = pr.modifiers || [];
+        pr.modifiers.push({ pcid: MY_PCID, playerName: freshMe.name, cardName: modCard.name, delta, newTotal });
+        pr.currentTotal = newTotal;
+        pr.expiresAt = Date.now() + 8000;
+
+        addLog(freshGS, `🃏 ${freshMe.name} plays ${modCard.name}: ${delta>=0?'+':''}${delta} → total now ${newTotal}`);
+        await pushState(freshGS);
+      });
+    };
+
+    function finish() {
+      if (resolved) return;
+      resolved = true;
+      clearInterval(timerInterval);
+      clearTimeout(resolveTimeout);
+      off(pendingRollRef, 'value', fbListener);
+      document.getElementById('dice-play-mod-btn').style.display = 'none';
+      document.getElementById('mod-timer-wrap').style.display = 'none';
+      document.getElementById('mod-timer-label').style.display = 'none';
+      // Show final state
+      if (localGS?.pendingRoll) updateDiceModal(localGS.pendingRoll);
+      const finalTotal = localGS?.pendingRoll?.currentTotal ?? currentPR.currentTotal;
+      const closeBtn = document.getElementById('dice-close-btn');
+      closeBtn.style.display = ''; closeBtn.textContent = 'Resolve';
+      closeBtn.onclick = () => {
+        document.getElementById('dice-modal').classList.add('hidden');
+        resolve(finalTotal);
+      };
+    }
+  });
+}
+
+// Modifier polarity picker (+/-)
+function askModifierPolarity(modCard) {
+  return new Promise(resolve => {
+    const el = document.createElement('div');
+    el.style.cssText = `position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+      background:var(--panel);border:1px solid var(--gold2);border-radius:8px;
+      padding:1.2rem;z-index:400;text-align:center;font-family:Cinzel,serif;min-width:240px;
+      box-shadow:0 8px 30px rgba(0,0,0,.8)`;
+    el.innerHTML = `<div style="color:var(--gold2);margin-bottom:.8rem;font-size:.85rem">${modCard.name}</div>
+      <div style="color:var(--text2);font-size:.72rem;margin-bottom:.8rem">${modCard.effect}</div>
+      <div style="display:flex;gap:.6rem;justify-content:center">
+        <button class="btn btn-green" id="mod-plus" style="padding:.4rem .9rem;font-size:.75rem">+${modCard.bonus}</button>
+        <button class="btn btn-red" id="mod-minus" style="padding:.4rem .9rem;font-size:.75rem">${modCard.penalty}</button>
+      </div>`;
+    document.body.appendChild(el);
+    el.querySelector('#mod-plus').onclick = () => { el.remove(); resolve(modCard.bonus); };
+    el.querySelector('#mod-minus').onclick = () => { el.remove(); resolve(modCard.penalty); };
+  });
+}
+
+// ─── CHALLENGE WINDOW (8 seconds, opponents can challenge) ───
+function waitForChallengeWindow() {
+  return new Promise((resolve) => {
+    const pendingRef = ref(db, `hp_rooms/${myRoom}/gameState/pendingCardPlay`);
+    const expiresAt = localGS?.pendingCardPlay?.expiresAt || (Date.now() + 8000);
+    let resolved = false;
+    let timerInterval;
+
+    timerInterval = setInterval(() => {
+      const rem = Math.max(0, expiresAt - Date.now());
+      const pct = rem / 8000 * 100;
+      // Update our own local countdown if we had any UI for it
+      if (rem <= 0) {
+        clearInterval(timerInterval);
+        finish({ challenged: false });
+      }
+    }, 100);
+
+    const fbListener = onValue(pendingRef, snap => {
+      const data = snap.val();
+      if (!data) { off(pendingRef,'value',fbListener); finish({challenged:false}); return; }
+      if (data.challengerPCID) {
+        off(pendingRef,'value',fbListener);
+        clearInterval(timerInterval);
+        finish({ challenged: true, challengerPCID: data.challengerPCID, challengerName: data.challengerName });
+      }
+    });
+
+    setTimeout(() => {
+      off(pendingRef,'value',fbListener);
+      finish({ challenged: false });
+    }, 8200);
+
+    function finish(result) {
+      if (resolved) return;
+      resolved = true;
+      clearInterval(timerInterval);
+      resolve(result);
+    }
   });
 }
 
