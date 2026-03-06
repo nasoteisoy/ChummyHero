@@ -894,6 +894,11 @@ document.getElementById('pass-challenge-btn').addEventListener('click', () => {
   clearInterval(window._challengeTimerInterval);
 });
 
+// Hide tooltip when tapping anywhere outside a card
+document.addEventListener('touchstart', (e) => {
+  if (!e.target.closest('.card')) hideTooltip();
+}, { passive: true });
+
 document.getElementById('challenge-watch-btn').addEventListener('click', () => {
   document.getElementById('challenge-flash').classList.add('hidden');
 });
@@ -907,19 +912,33 @@ function makeCardEl(card, opts={}) {
   img.onerror = () => { img.src = card.type === 'Monster' ? 'images/Monster_Card_Back.png' : 'images/Card_Back.png'; };
   el.appendChild(img);
   el.dataset.uid = card.uid || card.id;
-  // Tooltip — desktop hover
+
+  // Desktop: hover tooltip
   el.addEventListener('mouseenter', () => showTooltipAt(card, el));
   el.addEventListener('mouseleave', hideTooltip);
-  // Tooltip — mobile tap (tap to show, tap elsewhere to hide)
-  el.addEventListener('touchstart', (e) => {
-    e.preventDefault();
-    if (!tooltip.classList.contains('hidden') && tooltip._card === card) {
-      hideTooltip();
-    } else {
-      tooltip._card = card;
+
+  // Mobile: long-press (400ms) shows tooltip, quick tap fires click normally
+  let pressTimer = null;
+  let didLongPress = false;
+  el.addEventListener('touchstart', () => {
+    didLongPress = false;
+    pressTimer = setTimeout(() => {
+      didLongPress = true;
       showTooltipAt(card, el);
+    }, 400);
+  }, { passive: true });
+  el.addEventListener('touchend', () => {
+    clearTimeout(pressTimer);
+    // If tooltip is visible from a long-press, hide it on next tap
+    if (!didLongPress && !tooltip.classList.contains('hidden') && tooltip._card === card) {
+      hideTooltip();
     }
-  }, { passive: false });
+    tooltip._card = card;
+  }, { passive: true });
+  el.addEventListener('touchmove', () => {
+    clearTimeout(pressTimer);
+  }, { passive: true });
+
   if (opts.onClick) el.addEventListener('click', opts.onClick);
   return el;
 }
