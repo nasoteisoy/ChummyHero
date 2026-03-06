@@ -548,6 +548,7 @@ function generateCode(length) {
 }
 
 const MY_PCID = getOrCreatePCID();
+console.log('%c[ChummyGames] MY PCID:', 'color:#f0c040;font-weight:bold', MY_PCID);
 let myName = '';
 let myRoom = '';
 let roomListener = null;
@@ -794,7 +795,29 @@ function makeCardEl(card, opts={}) {
 // ════════════════════════════════════════
 // SCREEN 1: NAME
 // ════════════════════════════════════════
-showScreen('name-screen');
+
+// On load: check if this PCID already has a name in Firebase — skip name screen if so
+async function checkReturningPlayer() {
+  showScreen('name-screen');
+  try {
+    const snap = await get(ref(db, `hp_players/${MY_PCID}`));
+    if (snap.exists()) {
+      const data = snap.val();
+      if (data.name) {
+        myName = data.name;
+        await update(ref(db, `hp_players/${MY_PCID}`), { lastSeen: Date.now() });
+        console.log('%c[ChummyGames] RETURNING PLAYER:', 'color:#f0c040;font-weight:bold', { name: myName, pcid: MY_PCID });
+        enterLobby();
+        return;
+      }
+    }
+  } catch(e) {
+    console.warn('[ChummyGames] Could not check existing player, showing name screen.', e);
+  }
+  showScreen('name-screen');
+}
+checkReturningPlayer();
+
 document.getElementById('name-confirm-btn').addEventListener('click', confirmName);
 document.getElementById('name-input').addEventListener('keydown', e => { if (e.key === 'Enter') confirmName(); });
 document.getElementById('already-in-btn').addEventListener('click', () => showScreen('recovery-screen'));
@@ -825,6 +848,7 @@ async function confirmName() {
     // Also register the PCID
     await set(ref(db, `hp_players/${MY_PCID}`), { name, pcid: MY_PCID, lastSeen: Date.now() });
     myName = name;
+    console.log('%c[ChummyGames] NAME SET:', 'color:#f0c040;font-weight:bold', { name, pcid: MY_PCID });
     enterLobby();
   } catch(e) {
     setMsg('name-msg', 'Connection error. Check your internet.');
@@ -852,6 +876,7 @@ async function handleRecovery() {
       await set(ref(db, `hp_migrations/${MY_PCID}`), { oldPCID, name, ts: Date.now() });
     }
     myName = name;
+    console.log('%c[ChummyGames] RECOVERY:', 'color:#f0c040;font-weight:bold', { name, oldPCID, newPCID: MY_PCID });
     setMsg('recovery-msg', `Welcome back, ${name}! Your new device is registered.`, 'ok');
     setTimeout(() => enterLobby(), 1200);
   } catch(e) {
@@ -987,8 +1012,8 @@ function buildInitialGameState(players) {
   const deck = buildMainDeck();
   const monsterDeck = buildMonsterDeck();
   // Shuffle monsters and pick 5 for row, rest are side
-  const monsterRow = monsterDeck.slice(0,5);
-  const monsterReserve = monsterDeck.slice(5);
+  const monsterRow = monsterDeck.slice(0,3);
+  const monsterReserve = monsterDeck.slice(3);
   // Deal party leaders
   const leaders = shuffle([...CARDS.partyLeaders]);
   // Deal initial hands + party leaders
@@ -999,7 +1024,7 @@ function buildInitialGameState(players) {
     for (let j = 0; j < 5; j++) { if (deck.length) hand.push(deck.shift()); }
     playerStates[p.pcid] = {
       name: p.name, pcid: p.pcid,
-      hand, party: [], equippedItems: {},
+      hand: hand || [], party: [], equippedItems: {},
       slayedMonsters: [], partyLeader: {...leader, uid:`pl_${i}`},
       actionPoints: 3, rolledHeroes: [],
       statusEffects: {}
@@ -1033,6 +1058,10 @@ let logCollapsed = false;
 
 function startLocalGame(room) {
   localGS = room.gameState;
+  // Log all player names and PCIDs
+  const allPlayers = Object.values(localGS.players || {}).map(p => ({ name: p.name, pcid: p.pcid }));
+  console.log('%c[ChummyGames] GAME STARTED — All Players:', 'color:#f0c040;font-weight:bold');
+  console.table(allPlayers);
   showScreen('game-screen');
   document.getElementById('game-log').classList.remove('hidden');
   renderGame();
@@ -1047,6 +1076,9 @@ function listenRoomForGame() {
     if (room.status === 'waiting') { enterWaiting(); return; }
     if (room.gameState) {
       localGS = room.gameState;
+      // Log names + PCIDs on every state update
+      const allPlayers = Object.values(localGS.players || {}).map(p => ({ name: p.name, pcid: p.pcid }));
+      console.log('%c[ChummyGames] STATE UPDATE — Players:', 'color:#90b0ff;font-weight:bold', allPlayers);
       renderGame();
       checkWin();
     }
@@ -1179,6 +1211,11 @@ function renderOpponents(gs) {
 }
 
 function renderMyArea(gs, me) {
+  // Ensure arrays exist after Firebase round-trip
+  me.hand = me.hand || [];
+  me.party = me.party || [];
+  me.equippedItems = me.equippedItems || {};
+  me.slayedMonsters = me.slayedMonsters || [];
   document.getElementById('my-area-label').textContent = `${me.name}'s Party ${gs.currentTurn===MY_PCID?'(Your Turn)':''}`;
 
   // Leader
@@ -1253,6 +1290,13 @@ async function doAction(type) {
   if (!localGS || localGS.currentTurn !== MY_PCID) return;
   const gs = deepClone(localGS);
   const me = gs.players[MY_PCID];
+  // Guard all arrays — Firebase drops empty arrays on round-trip
+  me.hand = me.hand || [];
+  me.party = me.party || [];
+  me.equippedItems = me.equippedItems || {};
+  me.slayedMonsters = me.slayedMonsters || [];
+  me.rolledHeroes = me.rolledHeroes || [];
+  me.statusEffects = me.statusEffects || {};
 
   if (type === 'draw') {
     if (me.actionPoints < 1) { showNotif('Not enough AP!'); return; }
@@ -1296,6 +1340,14 @@ async function doAction(type) {
 
 async function playCard(gs, card) {
   const me = gs.players[MY_PCID];
+  // Ensure arrays exist (Firebase can drop empty arrays)
+  me.hand = me.hand || [];
+  me.party = me.party || [];
+  me.equippedItems = me.equippedItems || {};
+  me.slayedMonsters = me.slayedMonsters || [];
+  me.rolledHeroes = me.rolledHeroes || [];
+  me.statusEffects = me.statusEffects || {};
+
   me.hand = me.hand.filter(c => c.uid !== card.uid);
   me.actionPoints--;
   mySelectedCardUid = null;
@@ -1350,6 +1402,12 @@ async function playCard(gs, card) {
 
 async function rollForHero(gs, hero, skipDeduct=false) {
   const me = gs.players[MY_PCID];
+  me.hand = me.hand || [];
+  me.party = me.party || [];
+  me.equippedItems = me.equippedItems || {};
+  me.slayedMonsters = me.slayedMonsters || [];
+  me.rolledHeroes = me.rolledHeroes || [];
+  me.statusEffects = me.statusEffects || {};
   if (!skipDeduct) { me.actionPoints--; }
   if (!me.rolledHeroes) me.rolledHeroes = [];
   me.rolledHeroes.push(hero.uid);
@@ -1395,6 +1453,12 @@ async function rollForHero(gs, hero, skipDeduct=false) {
 
 async function attackMonster(gs, monster) {
   const me = gs.players[MY_PCID];
+  me.hand = me.hand || [];
+  me.party = me.party || [];
+  me.equippedItems = me.equippedItems || {};
+  me.slayedMonsters = me.slayedMonsters || [];
+  me.rolledHeroes = me.rolledHeroes || [];
+  me.statusEffects = me.statusEffects || {};
   // Check requirements
   const req = monster.require;
   const partyClasses = getPartyClasses(me);
@@ -1461,6 +1525,11 @@ async function attackMonster(gs, monster) {
 // ── HERO EFFECTS (simplified but functional) ──
 async function applyHeroEffect(gs, hero) {
   const me = gs.players[MY_PCID];
+  me.hand = me.hand || [];
+  me.party = me.party || [];
+  me.equippedItems = me.equippedItems || {};
+  me.slayedMonsters = me.slayedMonsters || [];
+  me.statusEffects = me.statusEffects || {};
   const effect = hero.effect;
   addLog(gs, `✨ ${hero.name} effect: ${effect}`);
 
@@ -1525,6 +1594,8 @@ async function applyMagicEffect(gs, card) {
 // ── HELPERS ──
 function drawCards(gs, pcid, count) {
   const p = gs.players[pcid];
+  if (!p) return;
+  p.hand = p.hand || [];
   for (let i = 0; i < count; i++) {
     if (!gs.deck.length) {
       if (gs.discardPile.length) {
@@ -1593,6 +1664,14 @@ async function endTurn() {
   gs.currentTurn = gs.turnOrder[gs.currentTurnIdx];
   // Check Mega Slime bonus AP
   const nextPlayer = gs.players[gs.currentTurn];
+  if (nextPlayer) {
+    nextPlayer.hand = nextPlayer.hand || [];
+    nextPlayer.party = nextPlayer.party || [];
+    nextPlayer.equippedItems = nextPlayer.equippedItems || {};
+    nextPlayer.slayedMonsters = nextPlayer.slayedMonsters || [];
+    nextPlayer.rolledHeroes = [];
+    nextPlayer.statusEffects = nextPlayer.statusEffects || {};
+  }
   if (nextPlayer?.slayedMonsters?.some(m => m.name === 'Mega Slime')) {
     nextPlayer.actionPoints = 4;
   } else {
