@@ -1802,12 +1802,9 @@ async function offerFreeHeroRoll(card) {
 
 async function rollForHero(gs, hero, skipDeduct=false) {
   const me = gs.players[MY_PCID];
-  me.hand = me.hand || [];
-  me.party = me.party || [];
-  me.equippedItems = me.equippedItems || {};
-  me.slayedMonsters = me.slayedMonsters || [];
-  me.rolledHeroes = me.rolledHeroes || [];
-  me.statusEffects = me.statusEffects || {};
+  me.hand = me.hand || []; me.party = me.party || [];
+  me.equippedItems = me.equippedItems || {}; me.slayedMonsters = me.slayedMonsters || [];
+  me.rolledHeroes = me.rolledHeroes || []; me.statusEffects = me.statusEffects || {};
   if (!skipDeduct) { me.actionPoints--; }
   me.rolledHeroes.push(hero.uid);
 
@@ -1825,10 +1822,9 @@ async function rollForHero(gs, hero, skipDeduct=false) {
     if (m.name==='Dark Dragon King') staticBonus+=1;
   });
 
-  const currentTotal = rawRoll + staticBonus;
-  addLog(gs, `${me.name} rolls for ${hero.name}: [${die1}+${die2}]${staticBonus?`${staticBonus>=0?'+':''}${staticBonus}`:''}=${currentTotal} (need ${hero.roll}+)`);
+  let currentTotal = rawRoll + staticBonus;
 
-  // Write pendingRoll to Firebase so all players can see and modify
+  // Write pendingRoll to Firebase so others can see dice + play modifiers
   gs.pendingRoll = {
     rollerId: MY_PCID, rollerName: me.name,
     context: 'hero', contextName: hero.name,
@@ -1836,42 +1832,41 @@ async function rollForHero(gs, hero, skipDeduct=false) {
     modifiers: [], currentTotal,
     target: hero.roll, expiresAt: Date.now() + 8000, resolved: false
   };
+  addLog(gs, `${me.name} rolls for ${hero.name}: [${die1}+${die2}]${staticBonus?`${staticBonus>=0?'+':''}${staticBonus}`:''}=${currentTotal} (need ${hero.roll}+)`);
   await pushState(gs);
 
-  // Wait for modifier window
-  const finalTotal = await waitForModifierWindow(gs.pendingRoll);
+  // Show dice + modifier window to the roller — resolves when timer ends or player clicks
+  const finalTotal = await showRollerDiceWindow(hero.roll, die1, die2, staticBonus, `Rolling for ${hero.name}`);
   const success = finalTotal >= hero.roll;
 
-  // Resolve
+  // Apply effect on a fresh state snapshot
   const freshGS = deepClone(localGS);
+  freshGS.pendingRoll = null;
   const freshMe = freshGS.players[MY_PCID];
   freshMe.hand = freshMe.hand || []; freshMe.party = freshMe.party || [];
   freshMe.equippedItems = freshMe.equippedItems || {}; freshMe.slayedMonsters = freshMe.slayedMonsters || [];
   freshMe.statusEffects = freshMe.statusEffects || {};
-  freshGS.pendingRoll = null;
 
-  addLog(freshGS, `${freshMe.name} → ${hero.name} final: ${finalTotal} (need ${hero.roll}+) → ${success?'✅ SUCCESS':'❌ FAIL'}`);
+  addLog(freshGS, `${freshMe.name} → ${hero.name}: ${finalTotal} vs ${hero.roll}+ → ${success ? '✅ SUCCESS' : '❌ FAIL'}`);
 
   if (success) {
+    showNotif(`✨ ${hero.name} — ${hero.effect}`);
     await applyHeroEffect(freshGS, hero);
   } else {
     const eq2 = freshMe.equippedItems?.[hero.uid];
     if (eq2?.name === 'Particularly Rusty Coin') {
       drawCards(freshGS, MY_PCID, 1);
-      addLog(freshGS, `${freshMe.name} draws a card from Particularly Rusty Coin.`);
+      addLog(freshGS, `${freshMe.name} draws from Particularly Rusty Coin.`);
     }
+    await pushState(freshGS);
   }
-  await pushState(freshGS);
 }
 
 async function attackMonster(gs, monster) {
   const me = gs.players[MY_PCID];
-  me.hand = me.hand || [];
-  me.party = me.party || [];
-  me.equippedItems = me.equippedItems || {};
-  me.slayedMonsters = me.slayedMonsters || [];
-  me.rolledHeroes = me.rolledHeroes || [];
-  me.statusEffects = me.statusEffects || {};
+  me.hand = me.hand || []; me.party = me.party || [];
+  me.equippedItems = me.equippedItems || {}; me.slayedMonsters = me.slayedMonsters || [];
+  me.rolledHeroes = me.rolledHeroes || []; me.statusEffects = me.statusEffects || {};
 
   const partyClasses = getPartyClasses(me);
   if (!meetsRequirement(monster.require, partyClasses)) {
@@ -1879,14 +1874,13 @@ async function attackMonster(gs, monster) {
     return;
   }
   me.actionPoints -= 2;
+
   const { die1, die2, total: rawRoll } = rollDice();
   let staticBonus = 0;
   if (me.partyLeader?.type === 'Party Leader: Ranger') staticBonus += 1;
   (me.slayedMonsters||[]).forEach(m => { if (m.name==='Anuran Cauldron') staticBonus+=1; });
   if (me.statusEffects?.enchanted) staticBonus += 2;
-
   const currentTotal = rawRoll + staticBonus;
-  addLog(gs, `${me.name} attacks ${monster.name}: [${die1}+${die2}]${staticBonus?`+${staticBonus}`:''}=${currentTotal}`);
 
   gs.pendingRoll = {
     rollerId: MY_PCID, rollerName: me.name,
@@ -1895,18 +1889,17 @@ async function attackMonster(gs, monster) {
     modifiers: [], currentTotal,
     target: monster.winRoll, expiresAt: Date.now() + 8000, resolved: false
   };
+  addLog(gs, `${me.name} attacks ${monster.name}: [${die1}+${die2}]${staticBonus?`+${staticBonus}`:''}=${currentTotal}`);
   await pushState(gs);
 
-  const finalTotal = await waitForModifierWindow(gs.pendingRoll);
+  const finalTotal = await showRollerDiceWindow(monster.winRoll, die1, die2, staticBonus, `Attacking ${monster.name}`);
 
-  // Re-fetch fresh state after modifier window
   const freshGS = deepClone(localGS);
+  freshGS.pendingRoll = null;
   const freshMe = freshGS.players[MY_PCID];
   freshMe.hand = freshMe.hand || []; freshMe.party = freshMe.party || [];
   freshMe.equippedItems = freshMe.equippedItems || {}; freshMe.slayedMonsters = freshMe.slayedMonsters || [];
-  freshGS.pendingRoll = null;
-
-  addLog(freshGS, `${freshMe.name} attack on ${monster.name}: final ${finalTotal} (win:${monster.winRoll}+, lose:≤${monster.loseRoll})`);
+  addLog(freshGS, `${freshMe.name} attack final: ${finalTotal} (win:${monster.winRoll}+, lose:≤${monster.loseRoll})`);
 
   if (finalTotal >= monster.winRoll) {
     freshGS.monsterRow = freshGS.monsterRow.filter(m => m.uid !== monster.uid);
@@ -1915,6 +1908,7 @@ async function attackMonster(gs, monster) {
     if (monster.winEffect.includes('DRAW 2')) drawCards(freshGS, MY_PCID, 2);
     else if (monster.winEffect.includes('DRAW')) drawCards(freshGS, MY_PCID, 1);
     addLog(freshGS, `🐉 ${freshMe.name} slays ${monster.name}! Passive: ${monster.passiveEffect}`);
+    showNotif(`🐉 ${monster.name} slain!`);
     if (freshGS.monsterReserve?.length) freshGS.monsterRow.push(freshGS.monsterReserve.shift());
   } else if (finalTotal <= monster.loseRoll) {
     addLog(freshGS, `${freshMe.name} loses! ${monster.loseEffect}`);
@@ -1934,52 +1928,752 @@ async function attackMonster(gs, monster) {
   } else {
     addLog(freshGS, `${freshMe.name}'s attack had no effect.`);
   }
-
   mySelectedMonsterUid = null;
   await pushState(freshGS);
 }
 
 // ── HERO EFFECTS (simplified but functional) ──
+// ════════════════════════════════════════
+// HERO EFFECT ENGINE — full implementation per card
+// ════════════════════════════════════════
 async function applyHeroEffect(gs, hero) {
   const me = gs.players[MY_PCID];
-  me.hand = me.hand || [];
-  me.party = me.party || [];
-  me.equippedItems = me.equippedItems || {};
-  me.slayedMonsters = me.slayedMonsters || [];
+  me.hand = me.hand || []; me.party = me.party || [];
+  me.equippedItems = me.equippedItems || {}; me.slayedMonsters = me.slayedMonsters || [];
   me.statusEffects = me.statusEffects || {};
-  const effect = hero.effect;
-  addLog(gs, `✨ ${hero.name} effect: ${effect}`);
+  gs.discardPile = gs.discardPile || [];
+  addLog(gs, `✨ ${hero.name}: ${hero.effect}`);
 
-  // DRAW effects
-  if (effect.includes('DRAW 3')) drawCards(gs, MY_PCID, 3);
-  else if (effect.includes('DRAW 2')) drawCards(gs, MY_PCID, 2);
-  else if (effect.startsWith('DRAW a card') || effect.includes('DRAW a card')) drawCards(gs, MY_PCID, 1);
+  // ── helpers ──────────────────────────────────────────
+  const otherPlayers = () => Object.values(gs.players).filter(p => p.pcid !== MY_PCID);
 
-  // DISCARD effects
-  if (effect.includes('DISCARD a card') && !effect.includes('DISCARD 2')) {
-    if (me.hand.length) {
-      const idx = await pickCardFromHand(gs, MY_PCID, 'Choose a card to DISCARD');
-      if (idx >= 0) { gs.discardPile.push(me.hand.splice(idx,1)[0]); }
+  // Pick a target player (returns player object or null)
+  const pickPlayer = (prompt, filter) => new Promise(resolve => {
+    const opts = otherPlayers().filter(filter || (() => true));
+    if (!opts.length) { resolve(null); return; }
+    if (opts.length === 1) { resolve(opts[0]); return; }
+    const el = makePickerEl(prompt, opts.map(p => ({ label: p.name, value: p })), resolve);
+    document.body.appendChild(el);
+  });
+
+  // Pick a hero from a specific player's party
+  const pickHeroFromParty = (pcid, prompt) => new Promise(resolve => {
+    const party = (gs.players[pcid]?.party || []);
+    if (!party.length) { resolve(null); return; }
+    openModal(prompt, '', party, resolve, false);
+  });
+
+  // Pick a card from a player's hand (pulls a random one if no UI needed, or shows for look)
+  const pullRandomFromHand = (pcid) => {
+    const p = gs.players[pcid]; if (!p) return null;
+    p.hand = p.hand || [];
+    if (!p.hand.length) return null;
+    const idx = Math.floor(Math.random() * p.hand.length);
+    return p.hand.splice(idx, 1)[0];
+  };
+
+  // Pick a card from discard pile
+  const pickFromDiscard = (prompt, filter) => new Promise(resolve => {
+    const pile = (gs.discardPile || []).filter(filter || (() => true));
+    if (!pile.length) { showNotif('Discard pile has no matching cards.'); resolve(null); return; }
+    openModal(prompt, '', pile, resolve, false);
+  });
+
+  // ── BARD ─────────────────────────────────────────────
+  if (hero.name === 'Dodgy Dealer') {
+    // Trade hands with another player
+    const target = await pickPlayer('Trade hands with which player?');
+    if (target) {
+      const myHand = [...me.hand];
+      me.hand = [...(target.hand || [])];
+      target.hand = myHand;
+      addLog(gs, `${me.name} trades hands with ${target.name}.`);
     }
   }
-  if (effect.includes('DISCARD 2 cards')) {
-    for (let i = 0; i < 2 && me.hand.length; i++) {
-      const idx = await pickCardFromHand(gs, MY_PCID, 'Choose a card to DISCARD ('+( i+1)+'/2)');
-      if (idx >= 0) gs.discardPile.push(me.hand.splice(idx,1)[0]);
+  else if (hero.name === 'Fuzzy Cheeks') {
+    // DRAW a card and play a Hero card from hand immediately
+    drawCards(gs, MY_PCID, 1);
+    const heroCards = me.hand.filter(c => c.type?.startsWith('Hero'));
+    if (heroCards.length) {
+      openModal('Play a Hero card from your hand immediately', '', heroCards, async (card) => {
+        if (!card) return;
+        me.hand = me.hand.filter(c => c.uid !== card.uid);
+        me.party.push(card);
+        addLog(gs, `${me.name} plays ${card.name} to Party via Fuzzy Cheeks.`);
+        await pushState(gs);
+        await offerFreeHeroRoll(card);
+      }, false);
+      return; // early return — openModal is async-callback style, pushState happens inside
+    }
+  }
+  else if (hero.name === 'Greedy Cheeks') {
+    // Each other player must give you a card from their hand
+    for (const p of otherPlayers()) {
+      p.hand = p.hand || [];
+      if (p.hand.length) {
+        const card = pullRandomFromHand(p.pcid);
+        if (card) { me.hand.push(card); addLog(gs, `${me.name} takes a card from ${p.name}.`); }
+      }
+    }
+  }
+  else if (hero.name === 'Lucky Bucky') {
+    // Pull a card from another player's hand; if Hero, may play immediately
+    const target = await pickPlayer("Pull a card from which player's hand?", p => (p.hand||[]).length > 0);
+    if (target) {
+      const card = pullRandomFromHand(target.pcid);
+      if (card) {
+        me.hand.push(card);
+        addLog(gs, `${me.name} pulls ${card.type?.startsWith('Hero') ? 'a Hero' : 'a card'} from ${target.name}.`);
+        if (card.type?.startsWith('Hero')) {
+          await offerImmediatePlay(gs, card, `${card.name} is a Hero — play it immediately?`);
+          return;
+        }
+      }
+    }
+  }
+  else if (hero.name === 'Mellow Dee') {
+    // DRAW a card; if Hero, may play immediately
+    const prev = me.hand.length;
+    drawCards(gs, MY_PCID, 1);
+    if (me.hand.length > prev) {
+      const drawn = me.hand[me.hand.length - 1];
+      if (drawn.type?.startsWith('Hero')) {
+        await offerImmediatePlay(gs, drawn, `${drawn.name} is a Hero — play it immediately?`);
+        return;
+      }
+    }
+  }
+  else if (hero.name === 'Napping Nibbles') {
+    addLog(gs, `${me.name} does nothing. Zzz...`);
+  }
+  else if (hero.name === 'Peanut') {
+    drawCards(gs, MY_PCID, 2);
+  }
+  else if (hero.name === 'Tipsy Tootie') {
+    // STEAL a Hero from another player's Party; move Tipsy Tootie to that player's Party
+    const target = await pickPlayer("Choose a player to steal a Hero from:", p => (p.party||[]).length > 0);
+    if (target) {
+      const stolen = await pickHeroFromParty(target.pcid, `Steal which Hero from ${target.name}?`);
+      if (stolen) {
+        target.party = target.party.filter(h => h.uid !== stolen.uid);
+        me.hand.push(stolen);
+        // Move Tipsy Tootie to that player's party
+        me.party = me.party.filter(h => h.uid !== hero.uid);
+        target.party = target.party || [];
+        target.party.push(hero);
+        addLog(gs, `${me.name} steals ${stolen.name} from ${target.name}! Tipsy Tootie joins ${target.name}'s party.`);
+      }
     }
   }
 
-  // Status effects
-  if (effect.includes('+5 to all')) { me.statusEffects = me.statusEffects||{}; me.statusEffects.vibrantGlow=true; }
-  if (effect.includes('+3 to all')) { me.statusEffects = me.statusEffects||{}; me.statusEffects.wiseShield=true; }
-  if (effect.includes('cannot be stolen')) { me.statusEffects = me.statusEffects||{}; me.statusEffects.protected=true; }
-  if (effect.includes('cannot be destroyed') && effect.includes('Party')) { me.statusEffects = me.statusEffects||{}; me.statusEffects.mighty=true; }
-  if (effect.includes('cannot be challenged')) { me.statusEffects = me.statusEffects||{}; me.statusEffects.ironResolve=true; }
+  // ── FIGHTER ──────────────────────────────────────────
+  else if (hero.name === 'Bad Axe') {
+    await destroyAHero(gs, me);
+  }
+  else if (hero.name === 'Bear Claw') {
+    // Pull a card from another player's hand; if Hero, pull a second
+    const target = await pickPlayer("Pull from which player's hand?", p => (p.hand||[]).length > 0);
+    if (target) {
+      const card1 = pullRandomFromHand(target.pcid);
+      if (card1) {
+        me.hand.push(card1);
+        addLog(gs, `${me.name} pulls a card from ${target.name}.`);
+        if (card1.type?.startsWith('Hero') && (target.hand||[]).length > 0) {
+          const card2 = pullRandomFromHand(target.pcid);
+          if (card2) { me.hand.push(card2); addLog(gs, `It was a Hero! Pulls a second card from ${target.name}.`); }
+        }
+      }
+    }
+  }
+  else if (hero.name === 'Beary Wise') {
+    // Each other player DISCARDs a card; you choose one to keep
+    const discarded = [];
+    for (const p of otherPlayers()) {
+      p.hand = p.hand || [];
+      if (p.hand.length) {
+        const card = pullRandomFromHand(p.pcid);
+        if (card) { discarded.push(card); addLog(gs, `${p.name} discards ${card.name}.`); }
+      }
+    }
+    if (discarded.length) {
+      await new Promise(resolve => {
+        openModal('Choose one discarded card to keep', '', discarded, (chosen) => {
+          if (chosen) {
+            me.hand.push(chosen);
+            discarded.filter(c => c.uid !== chosen.uid).forEach(c => gs.discardPile.push(c));
+            addLog(gs, `${me.name} keeps ${chosen.name}.`);
+          } else {
+            discarded.forEach(c => gs.discardPile.push(c));
+          }
+          resolve();
+        }, false);
+      });
+      await pushState(gs); return;
+    }
+  }
+  else if (hero.name === 'Fury Knuckle') {
+    // Pull a card; if Challenge, pull a second
+    const target = await pickPlayer("Pull from which player's hand?", p => (p.hand||[]).length > 0);
+    if (target) {
+      const card1 = pullRandomFromHand(target.pcid);
+      if (card1) {
+        me.hand.push(card1);
+        addLog(gs, `${me.name} pulls a card from ${target.name}.`);
+        if (card1.type === 'Challenge' && (target.hand||[]).length > 0) {
+          const card2 = pullRandomFromHand(target.pcid);
+          if (card2) { me.hand.push(card2); addLog(gs, `It was a Challenge! Pulls a second card.`); }
+        }
+      }
+    }
+  }
+  else if (hero.name === 'Heavy Bear') {
+    const target = await pickPlayer('Choose a player to discard 2 cards:');
+    if (target) {
+      target.hand = target.hand || [];
+      for (let i = 0; i < 2 && target.hand.length; i++) {
+        const c = target.hand.shift(); gs.discardPile.push(c);
+        addLog(gs, `${target.name} discards ${c.name}.`);
+      }
+    }
+  }
+  else if (hero.name === 'Pan Chucks') {
+    drawCards(gs, MY_PCID, 2);
+    const drawn = me.hand.slice(-2);
+    if (drawn.some(c => c.type === 'Challenge')) {
+      addLog(gs, `${me.name} drew a Challenge card!`);
+      await destroyAHero(gs, me);
+    }
+  }
+  else if (hero.name === 'Qi Bear') {
+    // DISCARD up to 3 cards, DESTROY a Hero for each
+    let discarded = 0;
+    for (let i = 0; i < 3 && me.hand.length; i++) {
+      const proceed = await confirmPrompt(`Discard a card to DESTROY a Hero? (${i+1}/3, can stop anytime)`);
+      if (!proceed) break;
+      await new Promise(resolve => {
+        openModal(`Choose a card to DISCARD (${i+1}/3)`, '', me.hand, (card) => {
+          if (card) { me.hand = me.hand.filter(c => c.uid !== card.uid); gs.discardPile.push(card); discarded++; }
+          resolve();
+        }, false);
+      });
+      if (discarded > i) await destroyAHero(gs, me);
+    }
+  }
+  else if (hero.name === 'Tough Teddy') {
+    // Each other player with a Fighter in their Party discards a card
+    for (const p of otherPlayers()) {
+      const hasFighter = (p.party||[]).some(h => (p.equippedItems?.[h.uid]?.name === 'Fighter Mask') || h.type === 'Hero: Fighter');
+      if (hasFighter && (p.hand||[]).length) {
+        const card = pullRandomFromHand(p.pcid);
+        if (card) { gs.discardPile.push(card); addLog(gs, `${p.name} (has Fighter) discards ${card.name}.`); }
+      }
+    }
+  }
 
-  // DRAW cards until 7
-  if (effect.includes('until you have 7')) {
+  // ── GUARDIAN ─────────────────────────────────────────
+  else if (hero.name === 'Calming Voice') {
+    me.statusEffects.protected = true;
+    addLog(gs, `${me.name}'s Party cannot be stolen until next turn.`);
+  }
+  else if (hero.name === 'Guiding Light') {
+    const card = await pickFromDiscard('Search discard pile for a Hero card:', c => c.type?.startsWith('Hero'));
+    if (card) { gs.discardPile = gs.discardPile.filter(c => c.uid !== card.uid); me.hand.push(card); addLog(gs, `${me.name} retrieves ${card.name} from discard.`); }
+  }
+  else if (hero.name === 'Holy Curselifter') {
+    // Return a Cursed Item equipped to your party to hand
+    const cursedHeroes = me.party.filter(h => me.equippedItems?.[h.uid]?.type === 'Cursed Item');
+    if (!cursedHeroes.length) { showNotif('No Cursed Items equipped to your party.'); }
+    else {
+      await new Promise(resolve => {
+        openModal('Return which Cursed Item?', '', cursedHeroes.map(h => me.equippedItems[h.uid]), (item) => {
+          if (item) {
+            const heroWithItem = cursedHeroes.find(h => me.equippedItems[h.uid]?.uid === item.uid);
+            if (heroWithItem) { me.hand.push(item); delete me.equippedItems[heroWithItem.uid]; addLog(gs, `${me.name} returns ${item.name} to hand.`); }
+          }
+          resolve();
+        }, false);
+      });
+      await pushState(gs); return;
+    }
+  }
+  else if (hero.name === 'Iron Resolve') {
+    me.statusEffects.ironResolve = true;
+    addLog(gs, `${me.name}'s cards cannot be challenged this turn.`);
+  }
+  else if (hero.name === 'Mighty Blade') {
+    me.statusEffects.mighty = true;
+    addLog(gs, `${me.name}'s Heroes cannot be destroyed until next turn.`);
+  }
+  else if (hero.name === 'Radiant Horn') {
+    const card = await pickFromDiscard('Search discard pile for a Modifier card:', c => c.type === 'Modifier');
+    if (card) { gs.discardPile = gs.discardPile.filter(c => c.uid !== card.uid); me.hand.push(card); addLog(gs, `${me.name} retrieves ${card.name} from discard.`); }
+  }
+  else if (hero.name === 'Vibrant Glow') {
+    me.statusEffects.vibrantGlow = true;
+    addLog(gs, `${me.name} gets +5 to all rolls until end of turn.`);
+  }
+  else if (hero.name === 'Wise Shield') {
+    me.statusEffects.wiseShield = true;
+    addLog(gs, `${me.name} gets +3 to all rolls until end of turn.`);
+  }
+
+  // ── RANGER ───────────────────────────────────────────
+  else if (hero.name === 'Bullseye') {
+    // Look at top 3 cards; add 1 to hand, return the other 2
+    gs.deck = gs.deck || [];
+    const top3 = gs.deck.splice(0, Math.min(3, gs.deck.length));
+    if (top3.length) {
+      await new Promise(resolve => {
+        openModal('Choose a card to add to your hand', 'The other two go back to the top of the deck.', top3, (chosen) => {
+          if (chosen) {
+            me.hand.push(chosen);
+            const rest = top3.filter(c => c.uid !== chosen.uid);
+            gs.deck.unshift(...rest);
+            addLog(gs, `${me.name} takes ${chosen.name} and returns ${rest.length} card(s) to top of deck.`);
+          } else {
+            gs.deck.unshift(...top3);
+          }
+          resolve();
+        }, false);
+      });
+      await pushState(gs); return;
+    }
+  }
+  else if (hero.name === 'Hook') {
+    // Play an Item card from hand immediately and DRAW a card
+    const itemCards = me.hand.filter(c => c.type === 'Item' || c.type === 'Cursed Item');
+    if (itemCards.length) {
+      await new Promise(resolve => {
+        openModal('Play an Item card immediately', '', itemCards, async (card) => {
+          if (card) {
+            me.hand = me.hand.filter(c => c.uid !== card.uid);
+            const heroForItem = me.party.length ? await selectHeroInParty(gs, MY_PCID, `Equip ${card.name} to which Hero?`) : null;
+            if (heroForItem) { me.equippedItems[heroForItem.uid] = card; addLog(gs, `${me.name} equips ${card.name} to ${heroForItem.name}.`); }
+            else { gs.discardPile.push(card); }
+          }
+          resolve();
+        }, false);
+      });
+    }
+    drawCards(gs, MY_PCID, 1);
+  }
+  else if (hero.name === 'Lookie Rookie') {
+    const card = await pickFromDiscard('Search discard pile for an Item card:', c => c.type === 'Item' || c.type === 'Cursed Item');
+    if (card) { gs.discardPile = gs.discardPile.filter(c => c.uid !== card.uid); me.hand.push(card); addLog(gs, `${me.name} retrieves ${card.name} from discard.`); }
+  }
+  else if (hero.name === 'Quick Draw') {
+    drawCards(gs, MY_PCID, 2);
+    const drawn = me.hand.slice(-2);
+    const itemDrawn = drawn.find(c => c.type === 'Item' || c.type === 'Cursed Item');
+    if (itemDrawn) {
+      await new Promise(resolve => {
+        openModal('You drew an Item — play it immediately?', '', [itemDrawn], async (card) => {
+          if (card) {
+            me.hand = me.hand.filter(c => c.uid !== card.uid);
+            const heroForItem = me.party.length ? await selectHeroInParty(gs, MY_PCID, `Equip ${card.name} to which Hero?`) : null;
+            if (heroForItem) { me.equippedItems[heroForItem.uid] = card; addLog(gs, `${me.name} equips ${card.name} to ${heroForItem.name}.`); }
+            else gs.discardPile.push(card);
+          }
+          resolve();
+        }, false);
+      });
+      await pushState(gs); return;
+    }
+  }
+  else if (hero.name === 'Serious Grey') {
+    await destroyAHero(gs, me);
+    drawCards(gs, MY_PCID, 1);
+  }
+  else if (hero.name === 'Sharp Fox') {
+    // Look at another player's hand (show in modal, read-only)
+    const target = await pickPlayer("Look at which player's hand?", p => (p.hand||[]).length > 0);
+    if (target) {
+      target.hand = target.hand || [];
+      await new Promise(resolve => {
+        openModal(`${target.name}'s Hand (read only)`, `${target.name} has ${target.hand.length} card(s).`, target.hand, () => resolve(), false);
+        // Override confirm to just close
+        document.getElementById('modal-confirm-btn').style.display = 'none';
+        document.getElementById('modal-cancel-btn').textContent = 'Close';
+        document.getElementById('modal-cancel-btn').onclick = () => {
+          document.getElementById('card-select-modal').classList.add('hidden');
+          document.getElementById('modal-confirm-btn').style.display = '';
+          document.getElementById('modal-cancel-btn').textContent = 'Cancel';
+          resolve();
+        };
+      });
+      await pushState(gs); return;
+    }
+  }
+  else if (hero.name === 'Wildshot') {
+    drawCards(gs, MY_PCID, 3);
+    const idx = await pickCardFromHand(gs, MY_PCID, 'DISCARD a card:');
+    if (idx >= 0) gs.discardPile.push(me.hand.splice(idx, 1)[0]);
+  }
+  else if (hero.name === 'Wily Red') {
     while (me.hand.length < 7 && gs.deck.length) me.hand.push(gs.deck.shift());
+    addLog(gs, `${me.name} draws to 7 cards.`);
   }
+
+  // ── THIEF ────────────────────────────────────────────
+  else if (hero.name === 'Kit Napper') {
+    await stealAHero(gs, me);
+  }
+  else if (hero.name === 'Meowzio') {
+    const target = await pickPlayer('Choose a player to steal from:', p => (p.party||[]).length > 0);
+    if (target) {
+      const stolen = await pickHeroFromParty(target.pcid, `Steal which Hero from ${target.name}?`);
+      if (stolen) {
+        target.party = target.party.filter(h => h.uid !== stolen.uid);
+        me.party.push(stolen);
+        addLog(gs, `${me.name} steals ${stolen.name} from ${target.name}.`);
+      }
+      const pulled = pullRandomFromHand(target.pcid);
+      if (pulled) { me.hand.push(pulled); addLog(gs, `${me.name} also pulls a card from ${target.name}'s hand.`); }
+    }
+  }
+  else if (hero.name === 'Plundering Puma') {
+    const target = await pickPlayer("Pull 2 cards from which player's hand?", p => (p.hand||[]).length > 0);
+    if (target) {
+      for (let i = 0; i < 2 && (target.hand||[]).length; i++) {
+        const c = pullRandomFromHand(target.pcid);
+        if (c) { me.hand.push(c); }
+      }
+      addLog(gs, `${me.name} pulls 2 cards from ${target.name}. ${target.name} may draw a card.`);
+      // Target draws a card (auto-applied since target is another player, they'll see the log)
+      drawCards(gs, target.pcid, 1);
+    }
+  }
+  else if (hero.name === 'Shurikitty') {
+    // DESTROY a Hero; if it had an Item equipped, add that Item to hand
+    await destroyAHeroWithItemRecovery(gs, me);
+  }
+  else if (hero.name === 'Silent Shadow') {
+    // Look at another player's hand, choose a card to take
+    const target = await pickPlayer("Look at which player's hand?", p => (p.hand||[]).length > 0);
+    if (target) {
+      target.hand = target.hand || [];
+      await new Promise(resolve => {
+        openModal(`Take a card from ${target.name}'s hand`, '', target.hand, (chosen) => {
+          if (chosen) {
+            target.hand = target.hand.filter(c => c.uid !== chosen.uid);
+            me.hand.push(chosen);
+            addLog(gs, `${me.name} takes ${chosen.name} from ${target.name}'s hand.`);
+          }
+          resolve();
+        }, false);
+      });
+      await pushState(gs); return;
+    }
+  }
+  else if (hero.name === 'Slippery Paws') {
+    const target = await pickPlayer("Pull 2 cards from which player's hand?", p => (p.hand||[]).length > 0);
+    if (target) {
+      for (let i = 0; i < 2 && (target.hand||[]).length; i++) {
+        const c = pullRandomFromHand(target.pcid); if (c) me.hand.push(c);
+      }
+      addLog(gs, `${me.name} pulls 2 cards from ${target.name}.`);
+      // Must discard one
+      const idx = await pickCardFromHand(gs, MY_PCID, 'DISCARD one of the pulled cards:');
+      if (idx >= 0) gs.discardPile.push(me.hand.splice(idx, 1)[0]);
+    }
+  }
+  else if (hero.name === 'Sly Pickings') {
+    const target = await pickPlayer("Pull a card from which player's hand?", p => (p.hand||[]).length > 0);
+    if (target) {
+      const card = pullRandomFromHand(target.pcid);
+      if (card) {
+        me.hand.push(card);
+        addLog(gs, `${me.name} pulls ${card.type === 'Item' ? 'an Item' : 'a card'} from ${target.name}.`);
+        if (card.type === 'Item' || card.type === 'Cursed Item') {
+          await offerImmediateEquip(gs, card);
+          await pushState(gs); return;
+        }
+      }
+    }
+  }
+  else if (hero.name === 'Smooth Mimimeow') {
+    // Pull a card from each player that has a Thief in their Party
+    for (const p of otherPlayers()) {
+      const hasThief = (p.party||[]).some(h => h.type === 'Hero: Thief' || p.equippedItems?.[h.uid]?.name === 'Thief Mask');
+      if (hasThief && (p.hand||[]).length) {
+        const c = pullRandomFromHand(p.pcid);
+        if (c) { me.hand.push(c); addLog(gs, `${me.name} pulls a card from ${p.name} (has Thief).`); }
+      }
+    }
+  }
+
+  // ── WIZARD ───────────────────────────────────────────
+  else if (hero.name === 'Bun Bun') {
+    const card = await pickFromDiscard('Search discard pile for a Magic card:', c => c.type === 'Magic');
+    if (card) { gs.discardPile = gs.discardPile.filter(c => c.uid !== card.uid); me.hand.push(card); addLog(gs, `${me.name} retrieves ${card.name} from discard.`); }
+  }
+  else if (hero.name === 'Buttons') {
+    const target = await pickPlayer("Pull from which player's hand?", p => (p.hand||[]).length > 0);
+    if (target) {
+      const card = pullRandomFromHand(target.pcid);
+      if (card) {
+        me.hand.push(card);
+        addLog(gs, `${me.name} pulls a card from ${target.name}.`);
+        if (card.type === 'Magic') {
+          await offerImmediateMagic(gs, card);
+          await pushState(gs); return;
+        }
+      }
+    }
+  }
+  else if (hero.name === 'Fluffy') {
+    addLog(gs, `${me.name} DESTROYS 2 Hero cards!`);
+    await destroyAHero(gs, me);
+    await destroyAHero(gs, me);
+  }
+  else if (hero.name === 'Hopper') {
+    const target = await pickPlayer('Choose a player to SACRIFICE a Hero:', p => (p.party||[]).length > 0);
+    if (target) {
+      const sacrificed = await pickHeroFromParty(target.pcid, `${target.name} must SACRIFICE which Hero?`);
+      if (sacrificed) {
+        target.party = target.party.filter(h => h.uid !== sacrificed.uid);
+        gs.discardPile.push(sacrificed);
+        addLog(gs, `${target.name} sacrifices ${sacrificed.name}.`);
+      }
+    }
+  }
+  else if (hero.name === 'Snowball') {
+    const prev = me.hand.length;
+    drawCards(gs, MY_PCID, 1);
+    if (me.hand.length > prev) {
+      const drawn = me.hand[me.hand.length - 1];
+      if (drawn.type === 'Magic') {
+        await offerImmediateMagic(gs, drawn);
+        drawCards(gs, MY_PCID, 1);
+        await pushState(gs); return;
+      }
+    }
+  }
+  else if (hero.name === 'Spooky') {
+    // Each OTHER player must SACRIFICE a Hero
+    for (const p of otherPlayers()) {
+      if ((p.party||[]).length) {
+        // Auto-sacrifice first hero (opponent doesn't get to choose — simplified)
+        const sacrificed = p.party.shift();
+        gs.discardPile.push(sacrificed);
+        addLog(gs, `${p.name} sacrifices ${sacrificed.name} to Spooky!`);
+      }
+    }
+  }
+  else if (hero.name === 'Whiskers') {
+    await stealAHero(gs, me);
+    await destroyAHero(gs, me);
+  }
+  else if (hero.name === 'Wiggles') {
+    // STEAL a Hero and roll to use its effect immediately
+    await stealAHero(gs, me);
+    if (me.party.length) {
+      const lastAdded = me.party[me.party.length - 1];
+      addLog(gs, `${me.name} rolls to use ${lastAdded.name}'s effect immediately!`);
+      await pushState(gs);
+      await rollForHero(gs, lastAdded, true);
+      return;
+    }
+  }
+
+  // Fallthrough — push state
+  await pushState(gs);
+}
+
+// ── shared sub-actions ──────────────────────────────────────────────────────
+
+// STEAL: pick opponent and hero from their party → move to your party
+async function stealAHero(gs, me) {
+  const others = Object.values(gs.players).filter(p => p.pcid !== MY_PCID && (p.party||[]).length > 0);
+  if (!others.length) { showNotif('No heroes to steal.'); return; }
+  const target = await new Promise(resolve => {
+    if (others.length === 1) { resolve(others[0]); return; }
+    const el = makePickerEl('Steal a Hero from which player?', others.map(p => ({ label: p.name, value: p })), resolve);
+    document.body.appendChild(el);
+  });
+  if (!target) return;
+  const hero = await new Promise(resolve => {
+    openModal(`Steal which Hero from ${target.name}?`, '', target.party||[], resolve, false);
+  });
+  if (hero) {
+    target.party = target.party.filter(h => h.uid !== hero.uid);
+    me.party = me.party || [];
+    me.party.push(hero);
+    addLog(gs, `${me.name} steals ${hero.name} from ${target.name}!`);
+  }
+}
+
+// DESTROY: pick any hero from any player's party (or specific target) → discard
+async function destroyAHero(gs, me) {
+  const allHeroes = [];
+  Object.values(gs.players).forEach(p => {
+    (p.party||[]).forEach(h => {
+      // Respect Mighty Blade / Terratuga
+      const owner = gs.players[p.pcid];
+      if (owner?.statusEffects?.mighty) return;
+      if ((owner?.slayedMonsters||[]).some(m => m.name === 'Terratuga') && p.pcid !== MY_PCID) return;
+      allHeroes.push({ ...h, _ownerPCID: p.pcid, _ownerName: p.name });
+    });
+  });
+  if (!allHeroes.length) { showNotif('No heroes to destroy.'); return; }
+  await new Promise(resolve => {
+    openModal('DESTROY which Hero?', 'Choose any Hero from any party.', allHeroes, (chosen) => {
+      if (chosen) {
+        const owner = gs.players[chosen._ownerPCID];
+        if (owner) {
+          owner.party = (owner.party||[]).filter(h => h.uid !== chosen.uid);
+          // Remove equipped item too
+          if (owner.equippedItems?.[chosen.uid]) {
+            gs.discardPile.push(owner.equippedItems[chosen.uid]);
+            delete owner.equippedItems[chosen.uid];
+          }
+          gs.discardPile.push({ ...chosen, _ownerPCID: undefined, _ownerName: undefined });
+          addLog(gs, `${me.name} destroys ${chosen.name} (was in ${chosen._ownerName}'s party).`);
+        }
+      }
+      resolve();
+    }, false);
+  });
+}
+
+// DESTROY with Item recovery (Shurikitty)
+async function destroyAHeroWithItemRecovery(gs, me) {
+  const allHeroes = [];
+  Object.values(gs.players).forEach(p => {
+    const owner = gs.players[p.pcid];
+    if (owner?.statusEffects?.mighty) return;
+    (p.party||[]).forEach(h => allHeroes.push({ ...h, _ownerPCID: p.pcid, _ownerName: p.name }));
+  });
+  if (!allHeroes.length) { showNotif('No heroes to destroy.'); return; }
+  await new Promise(resolve => {
+    openModal('DESTROY which Hero? (Shurikitty)', 'If it has an Item, you take it.', allHeroes, (chosen) => {
+      if (chosen) {
+        const owner = gs.players[chosen._ownerPCID];
+        if (owner) {
+          owner.party = (owner.party||[]).filter(h => h.uid !== chosen.uid);
+          const eq = owner.equippedItems?.[chosen.uid];
+          if (eq && (eq.type === 'Item' || eq.type === 'Cursed Item')) {
+            me.hand.push(eq); // recover item to hand instead of discard
+            delete owner.equippedItems[chosen.uid];
+            addLog(gs, `${me.name} recovers ${eq.name} from the destroyed hero!`);
+          }
+          gs.discardPile.push({ ...chosen, _ownerPCID: undefined, _ownerName: undefined });
+          addLog(gs, `${me.name} destroys ${chosen.name}.`);
+        }
+      }
+      resolve();
+    }, false);
+  });
+}
+
+// Offer to play a drawn/pulled Hero immediately
+async function offerImmediatePlay(gs, card, prompt) {
+  return new Promise(resolve => {
+    const el = document.createElement('div');
+    el.style.cssText = `position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+      background:var(--panel);border:1px solid var(--gold2);border-radius:8px;
+      padding:1.2rem;z-index:300;text-align:center;font-family:Cinzel,serif;min-width:240px;
+      box-shadow:0 8px 30px rgba(0,0,0,.8)`;
+    el.innerHTML = `<div style="color:var(--gold2);margin-bottom:.6rem;font-size:.8rem">${prompt || 'Play this Hero immediately?'}</div>
+      <div style="display:flex;gap:.6rem;justify-content:center">
+        <button class="btn btn-gold" id="iplay-yes" style="padding:.35rem .8rem;font-size:.7rem">Play Now</button>
+        <button class="btn btn-dark" id="iplay-no" style="padding:.35rem .8rem;font-size:.7rem">Keep in Hand</button>
+      </div>`;
+    document.body.appendChild(el);
+    const me = gs.players[MY_PCID];
+    el.querySelector('#iplay-yes').onclick = async () => {
+      el.remove();
+      me.hand = me.hand.filter(c => c.uid !== card.uid);
+      me.party = me.party || [];
+      me.party.push(card);
+      addLog(gs, `${me.name} immediately plays ${card.name} to Party!`);
+      await pushState(gs);
+      await offerFreeHeroRoll(card);
+      resolve();
+    };
+    el.querySelector('#iplay-no').onclick = () => { el.remove(); resolve(); };
+  });
+}
+
+// Offer to equip a drawn Item immediately
+async function offerImmediateEquip(gs, card) {
+  const me = gs.players[MY_PCID];
+  if (!me.party?.length) return;
+  return new Promise(resolve => {
+    openModal(`Equip ${card.name} immediately?`, '', me.party, async (hero) => {
+      if (hero) {
+        me.hand = me.hand.filter(c => c.uid !== card.uid);
+        me.equippedItems = me.equippedItems || {};
+        me.equippedItems[hero.uid] = card;
+        addLog(gs, `${me.name} equips ${card.name} to ${hero.name}.`);
+      }
+      resolve();
+    }, false);
+  });
+}
+
+// Offer to play a Magic card immediately
+async function offerImmediateMagic(gs, card) {
+  const me = gs.players[MY_PCID];
+  return new Promise(resolve => {
+    const el = document.createElement('div');
+    el.style.cssText = `position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+      background:var(--panel);border:1px solid var(--gold2);border-radius:8px;
+      padding:1.2rem;z-index:300;text-align:center;font-family:Cinzel,serif;min-width:240px;
+      box-shadow:0 8px 30px rgba(0,0,0,.8)`;
+    el.innerHTML = `<div style="color:var(--gold2);margin-bottom:.4rem;font-size:.8rem">${card.name} is Magic!</div>
+      <div style="color:var(--text2);font-size:.7rem;margin-bottom:.6rem">${card.effect}</div>
+      <div style="display:flex;gap:.6rem;justify-content:center">
+        <button class="btn btn-gold" id="imag-yes" style="padding:.35rem .8rem;font-size:.7rem">Play Now</button>
+        <button class="btn btn-dark" id="imag-no" style="padding:.35rem .8rem;font-size:.7rem">Keep</button>
+      </div>`;
+    document.body.appendChild(el);
+    el.querySelector('#imag-yes').onclick = async () => {
+      el.remove();
+      me.hand = (me.hand||[]).filter(c => c.uid !== card.uid);
+      gs.discardPile.push(card);
+      addLog(gs, `${me.name} plays ${card.name} immediately!`);
+      await applyMagicEffect(gs, card);
+      resolve();
+    };
+    el.querySelector('#imag-no').onclick = () => { el.remove(); resolve(); };
+  });
+}
+
+// Confirm prompt (yes/no)
+function confirmPrompt(msg) {
+  return new Promise(resolve => {
+    const el = document.createElement('div');
+    el.style.cssText = `position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+      background:var(--panel);border:1px solid var(--gold);border-radius:8px;
+      padding:1rem 1.2rem;z-index:350;text-align:center;font-family:Cinzel,serif;min-width:220px;
+      box-shadow:0 8px 30px rgba(0,0,0,.8)`;
+    el.innerHTML = `<div style="color:var(--text);font-size:.78rem;margin-bottom:.7rem">${msg}</div>
+      <div style="display:flex;gap:.5rem;justify-content:center">
+        <button class="btn btn-gold" id="cp-yes" style="padding:.3rem .7rem;font-size:.7rem">Yes</button>
+        <button class="btn btn-dark" id="cp-no" style="padding:.3rem .7rem;font-size:.7rem">No</button>
+      </div>`;
+    document.body.appendChild(el);
+    el.querySelector('#cp-yes').onclick = () => { el.remove(); resolve(true); };
+    el.querySelector('#cp-no').onclick = () => { el.remove(); resolve(false); };
+  });
+}
+
+// Generic player picker
+function makePickerEl(title, options, resolve) {
+  const el = document.createElement('div');
+  el.style.cssText = `position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+    background:var(--panel);border:1px solid var(--gold2);border-radius:8px;
+    padding:1.2rem;z-index:350;font-family:Cinzel,serif;min-width:240px;
+    box-shadow:0 8px 30px rgba(0,0,0,.8)`;
+  el.innerHTML = `<div style="color:var(--gold2);font-size:.8rem;margin-bottom:.8rem">${title}</div>
+    ${options.map((o,i) => `<button class="btn btn-dark btn-full" data-idx="${i}" style="margin-bottom:.4rem;font-size:.75rem">${o.label}</button>`).join('')}
+    <button class="btn btn-dark btn-full" id="picker-cancel" style="font-size:.7rem;color:var(--dim)">Cancel</button>`;
+  options.forEach((o, i) => {
+    el.querySelector(`[data-idx="${i}"]`).onclick = () => { el.remove(); resolve(o.value); };
+  });
+  el.querySelector('#picker-cancel').onclick = () => { el.remove(); resolve(null); };
+  return el;
 }
 
 async function applyMagicEffect(gs, card) {
@@ -2110,191 +2804,136 @@ async function endTurn() {
   mySelectedMonsterUid = null;
 }
 
-// ════════════════════════════════════════
-// DICE MODAL
-// ════════════════════════════════════════
-
-// Show dice result for the local player (roller sees this during modifier window)
-function updateDiceModal(pendingRoll) {
-  const modal = document.getElementById('dice-modal');
-  const { die1, die2, rawRoll, staticBonus, modifiers, currentTotal, target, contextName, context } = pendingRoll;
-  const label = context === 'hero' ? `Rolling for ${contextName}` : `Attacking ${contextName}`;
-  document.getElementById('dice-modal-title').textContent = label;
-
-  // Force re-animation by replacing elements
-  const d1 = document.getElementById('die1-display');
-  const d2 = document.getElementById('die2-display');
-  d1.textContent = dieFace(die1);
-  d2.textContent = dieFace(die2);
-  d1.style.animation = 'none'; d2.style.animation = 'none';
-  setTimeout(() => { d1.style.animation=''; d2.style.animation=''; }, 10);
-
-  document.getElementById('dice-result').textContent = currentTotal;
-
-  let breakdown = `[${die1} + ${die2}] = ${rawRoll}`;
-  if (staticBonus) breakdown += ` ${staticBonus >= 0 ? '+' : ''}${staticBonus} (bonuses) = ${rawRoll + staticBonus}`;
-  document.getElementById('dice-breakdown').textContent = breakdown;
-
-  // Modifier log
-  const logEl = document.getElementById('modifier-log');
-  logEl.innerHTML = (modifiers||[]).map(m => {
-    const pos = m.delta >= 0;
-    return `<div class="modifier-entry ${pos?'pos':'neg'}">${m.playerName} plays ${m.cardName}: ${pos?'+':''}${m.delta} → total now ${m.newTotal}</div>`;
-  }).join('');
-
-  // Outcome preview
-  const outcome = document.getElementById('dice-outcome');
-  const success = currentTotal >= target;
-  outcome.textContent = success ? `✅ ${currentTotal} ≥ ${target} — Success!` : `❌ ${currentTotal} < ${target} — Fail (need ${target}+)`;
-  outcome.style.background = success ? 'rgba(20,100,30,.3)' : 'rgba(150,20,20,.3)';
-  outcome.style.color = success ? '#90ff90' : '#ff9090';
-
-  modal.classList.remove('hidden');
-}
-
-// Show a challenge roll result to the active player
-async function showDiceModalChallenge(myName, myRoll, myBonus, myTotal, theirName, theirRoll, theirBonus, theirTotal) {
-  return new Promise(resolve => {
-    const modal = document.getElementById('dice-modal');
-    document.getElementById('dice-modal-title').textContent = '⚔ Challenge Roll!';
-    const d1 = document.getElementById('die1-display');
-    const d2 = document.getElementById('die2-display');
-    d1.textContent = dieFace(myRoll.die1); d2.textContent = dieFace(myRoll.die2);
-    document.getElementById('dice-result').textContent = myTotal;
-    document.getElementById('dice-breakdown').textContent =
-      `${myName}: [${myRoll.die1}+${myRoll.die2}]${myBonus?`+${myBonus}`:''}=${myTotal}  vs  ${theirName}: [${theirRoll.die1}+${theirRoll.die2}]${theirBonus?`+${theirBonus}`:''}=${theirTotal}`;
-    document.getElementById('modifier-log').innerHTML = '';
-    const outcome = document.getElementById('dice-outcome');
-    const iWon = myTotal >= theirTotal;
-    outcome.textContent = iWon ? `✅ You win the challenge!` : `❌ You lose the challenge!`;
-    outcome.style.background = iWon ? 'rgba(20,100,30,.3)' : 'rgba(150,20,20,.3)';
-    outcome.style.color = iWon ? '#90ff90' : '#ff9090';
-    document.getElementById('mod-timer-wrap').style.display = 'none';
-    document.getElementById('mod-timer-label').style.display = 'none';
-    document.getElementById('dice-play-mod-btn').style.display = 'none';
-    const closeBtn = document.getElementById('dice-close-btn');
-    closeBtn.style.display = ''; closeBtn.textContent = 'Continue';
-    closeBtn.onclick = () => { modal.classList.add('hidden'); resolve(); };
-    modal.classList.remove('hidden');
-  });
-}
-
-// ─── MODIFIER WINDOW (8 seconds, all players can modify) ───
-// Returns the final total after all modifiers are applied
-async function waitForModifierWindow(pendingRollSnapshot) {
+// ────────────────────────────────────────────────────────────────
+// ROLLER'S DICE WINDOW — shows dice + 8s modifier countdown
+// Returns the finalTotal (reading from localGS.pendingRoll after window)
+// ────────────────────────────────────────────────────────────────
+function showRollerDiceWindow(target, die1, die2, staticBonus, title) {
   return new Promise((resolve) => {
     const windowMs = 8000;
-    let currentPR = { ...pendingRollSnapshot };
-    let expiresAt = currentPR.expiresAt;
-    let timerInterval;
-    let resolved = false;
-    let resolveTimeout;
+    let expiresAt = Date.now() + windowMs;
+    let finished = false;
+    let countdownInterval;
+    let countdownTimeout;
 
-    const pendingRollRef = ref(db, `hp_rooms/${myRoom}/gameState/pendingRoll`);
-    const myHand = localGS?.players?.[MY_PCID]?.hand || [];
-    const hasModifier = myHand.some(c => c.type === 'Modifier');
+    const modal = document.getElementById('dice-modal');
 
-    // Show dice modal with timer
-    updateDiceModal(currentPR);
-    document.getElementById('mod-timer-wrap').style.display = '';
-    document.getElementById('mod-timer-label').style.display = '';
+    // Initial render
+    renderDiceModal(die1, die2, staticBonus, die1 + die2 + staticBonus, [], target, title);
     document.getElementById('dice-close-btn').style.display = 'none';
-    document.getElementById('dice-play-mod-btn').style.display = hasModifier ? '' : 'none';
+    document.getElementById('dice-play-mod-btn').style.display =
+      (localGS?.players?.[MY_PCID]?.hand || []).some(c => c.type === 'Modifier') ? '' : 'none';
+    modal.classList.remove('hidden');
 
-    const scheduleResolve = () => {
-      clearTimeout(resolveTimeout);
-      clearInterval(timerInterval);
+    // Countdown bar
+    const startCountdown = () => {
+      clearInterval(countdownInterval);
+      clearTimeout(countdownTimeout);
       const remaining = expiresAt - Date.now();
       if (remaining <= 0) { finish(); return; }
-
-      // Countdown bar
-      timerInterval = setInterval(() => {
-        const rem = expiresAt - Date.now();
-        const pct = Math.max(0, rem / windowMs * 100);
-        document.getElementById('mod-timer-fill').style.width = pct + '%';
-        document.getElementById('mod-timer-label').textContent = `Modifier window: ${Math.ceil(rem/1000)}s`;
-        if (rem <= 0) { clearInterval(timerInterval); finish(); }
+      countdownInterval = setInterval(() => {
+        const rem = Math.max(0, expiresAt - Date.now());
+        document.getElementById('mod-timer-fill').style.width = (rem / windowMs * 100) + '%';
+        document.getElementById('mod-timer-label').textContent = `Modifier window: ${Math.ceil(rem / 1000)}s`;
+        if (rem <= 0) { clearInterval(countdownInterval); finish(); }
       }, 100);
-
-      resolveTimeout = setTimeout(finish, remaining);
+      countdownTimeout = setTimeout(finish, remaining);
     };
+    document.getElementById('mod-timer-wrap').style.display = '';
+    document.getElementById('mod-timer-label').style.display = '';
+    startCountdown();
 
-    scheduleResolve();
-
-    // Firebase listener for modifier plays
-    const fbListener = onValue(pendingRollRef, snap => {
-      const data = snap.val();
-      if (!data || data.resolved) return;
-      if (data.expiresAt !== expiresAt) {
-        // Someone played a modifier — reset timer
-        expiresAt = data.expiresAt;
-        currentPR = data;
-        updateDiceModal(currentPR);
-        // Update modifier button based on current hand in localGS
-        const updatedHand = localGS?.players?.[MY_PCID]?.hand || [];
-        document.getElementById('dice-play-mod-btn').style.display =
-          updatedHand.some(c => c.type === 'Modifier') ? '' : 'none';
-        scheduleResolve();
+    // Firebase listener to catch modifier plays by anyone
+    const pendingRollRef = ref(db, `hp_rooms/${myRoom}/gameState/pendingRoll`);
+    const fbUnsub = onValue(pendingRollRef, snap => {
+      if (finished) return;
+      const pr = snap.val();
+      if (!pr) return;
+      // If modifier was played (expiresAt changed), re-render and reset countdown
+      renderDiceModal(pr.die1, pr.die2, pr.staticBonus, pr.currentTotal, pr.modifiers || [], pr.target, title);
+      document.getElementById('dice-play-mod-btn').style.display =
+        (localGS?.players?.[MY_PCID]?.hand || []).some(c => c.type === 'Modifier') ? '' : 'none';
+      if (pr.expiresAt && pr.expiresAt !== expiresAt) {
+        expiresAt = pr.expiresAt;
+        startCountdown();
       }
     });
 
-    // Play modifier button handler (for this player)
-    document.getElementById('dice-play-mod-btn').onclick = async () => {
+    // Play Modifier button
+    document.getElementById('dice-play-mod-btn').onclick = () => {
       const gs = deepClone(localGS);
       const me = gs.players[MY_PCID];
       me.hand = me.hand || [];
       const modCards = me.hand.filter(c => c.type === 'Modifier');
-      if (!modCards.length) { showNotif('No Modifier cards in hand!'); return; }
-
-      // Pick which modifier
-      openModal('Choose a Modifier Card', 'Play this modifier on the current roll:', modCards, async (modCard) => {
+      if (!modCards.length) { showNotif('No Modifier cards!'); return; }
+      openModal('Play a Modifier', '', modCards, async (modCard) => {
         if (!modCard) return;
-        // Ask +/- if the card has both options
-        let delta = modCard.bonus;
+        let delta = modCard.bonus ?? 0;
         if (modCard.penalty !== undefined && modCard.penalty !== modCard.bonus) {
           delta = await askModifierPolarity(modCard);
         }
-
         const freshGS = deepClone(localGS);
         const freshMe = freshGS.players[MY_PCID];
-        freshMe.hand = freshMe.hand || [];
-        freshMe.hand = freshMe.hand.filter(c => c.uid !== modCard.uid);
+        freshMe.hand = (freshMe.hand || []).filter(c => c.uid !== modCard.uid);
         freshGS.discardPile = freshGS.discardPile || [];
         freshGS.discardPile.push(modCard);
-
         const pr = freshGS.pendingRoll;
         if (!pr) return;
         const newTotal = pr.currentTotal + delta;
         pr.modifiers = pr.modifiers || [];
         pr.modifiers.push({ pcid: MY_PCID, playerName: freshMe.name, cardName: modCard.name, delta, newTotal });
         pr.currentTotal = newTotal;
-        pr.expiresAt = Date.now() + 8000;
-
-        addLog(freshGS, `🃏 ${freshMe.name} plays ${modCard.name}: ${delta>=0?'+':''}${delta} → total now ${newTotal}`);
+        pr.expiresAt = Date.now() + windowMs;
+        addLog(freshGS, `🃏 ${freshMe.name} plays ${modCard.name}: ${delta >= 0 ? '+' : ''}${delta} → total now ${newTotal}`);
         await pushState(freshGS);
       });
     };
 
     function finish() {
-      if (resolved) return;
-      resolved = true;
-      clearInterval(timerInterval);
-      clearTimeout(resolveTimeout);
-      off(pendingRollRef, 'value', fbListener);
+      if (finished) return;
+      finished = true;
+      clearInterval(countdownInterval);
+      clearTimeout(countdownTimeout);
+      fbUnsub(); // unsubscribe Firebase listener
       document.getElementById('dice-play-mod-btn').style.display = 'none';
       document.getElementById('mod-timer-wrap').style.display = 'none';
       document.getElementById('mod-timer-label').style.display = 'none';
-      // Show final state
-      if (localGS?.pendingRoll) updateDiceModal(localGS.pendingRoll);
-      const finalTotal = localGS?.pendingRoll?.currentTotal ?? currentPR.currentTotal;
-      const closeBtn = document.getElementById('dice-close-btn');
-      closeBtn.style.display = ''; closeBtn.textContent = 'Resolve';
-      closeBtn.onclick = () => {
-        document.getElementById('dice-modal').classList.add('hidden');
-        resolve(finalTotal);
-      };
+
+      // Read final total from localGS (most up-to-date after Firebase syncs)
+      const finalTotal = localGS?.pendingRoll?.currentTotal ?? (die1 + die2 + staticBonus);
+      // Re-render with final total and show result
+      const pr = localGS?.pendingRoll;
+      if (pr) renderDiceModal(pr.die1, pr.die2, pr.staticBonus, pr.currentTotal, pr.modifiers || [], pr.target, title);
+      const success = finalTotal >= target;
+      const outcome = document.getElementById('dice-outcome');
+      outcome.textContent = success ? `✅ ${finalTotal} ≥ ${target} — Success!` : `❌ ${finalTotal} < ${target} — Fail (need ${target}+)`;
+      outcome.style.background = success ? 'rgba(20,100,30,.3)' : 'rgba(150,20,20,.3)';
+      outcome.style.color = success ? '#90ff90' : '#ff9090';
+
+      // Resolve immediately — don't make player click a button
+      modal.classList.add('hidden');
+      resolve(finalTotal);
     }
   });
+}
+
+function renderDiceModal(die1, die2, staticBonus, currentTotal, modifiers, target, title) {
+  document.getElementById('dice-modal-title').textContent = title;
+  const d1 = document.getElementById('die1-display');
+  const d2 = document.getElementById('die2-display');
+  d1.textContent = dieFace(die1); d2.textContent = dieFace(die2);
+  // Re-trigger animation
+  d1.style.animation = 'none'; d2.style.animation = 'none';
+  requestAnimationFrame(() => { d1.style.animation = ''; d2.style.animation = ''; });
+  document.getElementById('dice-result').textContent = currentTotal;
+  let breakdown = `[${die1} + ${die2}] = ${die1 + die2}`;
+  if (staticBonus) breakdown += ` ${staticBonus >= 0 ? '+' : ''}${staticBonus} (bonus) = ${die1 + die2 + staticBonus}`;
+  document.getElementById('dice-breakdown').textContent = breakdown;
+  const logEl = document.getElementById('modifier-log');
+  logEl.innerHTML = (modifiers || []).map(m => {
+    const pos = m.delta >= 0;
+    return `<div class="modifier-entry ${pos ? 'pos' : 'neg'}">${m.playerName}: ${pos ? '+' : ''}${m.delta} (${m.cardName}) → ${m.newTotal}</div>`;
+  }).join('');
 }
 
 // Modifier polarity picker (+/-)
