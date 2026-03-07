@@ -339,11 +339,16 @@ body::before{content:'';position:fixed;inset:0;background:
       <input class="admin-search" id="admin-players-search" placeholder="Filter by name or PCID...">
       <div id="admin-players-list">Loading...</div>
     </div>
+    <div class="admin-section" style="margin-top:1.5rem">
+      <h2>🧹 Orphan Cleanup</h2>
+      <div style="color:#5a7aaa;font-size:.72rem;margin-bottom:.7rem">
+        Finds <code style="color:#aac4ff">hp_names</code> entries where the same PCID has more than one name, or where the name doesn't match <code style="color:#aac4ff">hp_players</code>. Safe to remove — only the current name in <code style="color:#aac4ff">hp_players</code> is authoritative.
+      </div>
+      <button class="admin-btn admin-btn-blue" id="admin-scan-orphans-btn">🔍 Scan for Orphans</button>
+      <div id="admin-orphans-list" style="margin-top:.7rem"></div>
+    </div>
   </div>
 </div>
-
-
-     ════════════════════════════════════════ -->
 <div id="name-screen" class="screen">
   <div class="game-title">Hero Party</div>
   <div class="game-sub">by Chummy Games</div>
@@ -1007,6 +1012,14 @@ async function confirmName() {
         return;
       }
     }
+    // Delete old name entry if this PCID had a different name before
+    const existingPlayer = await get(ref(db, `hp_players/${MY_PCID}`));
+    if (existingPlayer.exists()) {
+      const oldName = existingPlayer.val().name;
+      if (oldName && oldName !== name) {
+        await remove(ref(db, `hp_names/${oldName}`));
+      }
+    }
     // Register / update name
     await set(ref(db, `hp_names/${name}`), { pcid: MY_PCID, lastSeen: Date.now() });
     // Also register the PCID
@@ -1034,6 +1047,14 @@ async function handleRecovery() {
     const oldPCID = data.pcid;
     // Update name entry and player entry with new PCID
     await set(ref(db, `hp_names/${name}`), { pcid: MY_PCID, lastSeen: Date.now() });
+    // Clean up any old name this PCID previously held
+    const existingNew = await get(ref(db, `hp_players/${MY_PCID}`));
+    if (existingNew.exists()) {
+      const prevName = existingNew.val().name;
+      if (prevName && prevName !== name) {
+        await remove(ref(db, `hp_names/${prevName}`));
+      }
+    }
     await set(ref(db, `hp_players/${MY_PCID}`), { name, pcid: MY_PCID, lastSeen: Date.now() });
     // If old PCID is different, note the migration
     if (oldPCID !== MY_PCID) {
@@ -3928,6 +3949,74 @@ if (new URLSearchParams(window.location.search).has('admin')) {
 
   // ── Initial load ──
   adminLoad();
+
+  // ── Orphan scanner ──
+  document.getElementById('admin-scan-orphans-btn').addEventListener('click', async () => {
+    const container = document.getElementById('admin-orphans-list');
+    container.innerHTML = '<div style="color:#5a7aaa">Scanning...</div>';
+
+    // pcid → canonical name from hp_players
+    const canonicalName = {};
+    Object.entries(adminPlayers).forEach(([pcid, p]) => { if (p.name) canonicalName[pcid] = p.name; });
+
+    // Find orphans: names whose pcid points to a different canonical name
+    const orphans = [];
+    Object.entries(adminNames).forEach(([name, data]) => {
+      const pcid = data.pcid;
+      const correct = canonicalName[pcid];
+      if (correct && correct !== name) {
+        orphans.push({ name, pcid, correctName: correct });
+      } else if (!correct) {
+        orphans.push({ name, pcid, correctName: null }); // PCID no longer exists
+      }
+    });
+
+    if (!orphans.length) {
+      container.innerHTML = '<div style="color:#80ff9a;font-size:.75rem">✓ No orphans found — hp_names is clean.</div>';
+      return;
+    }
+
+    container.innerHTML = '';
+    const header = document.createElement('div');
+    header.style.cssText = 'color:#ffd060;font-size:.72rem;margin-bottom:.5rem';
+    header.textContent = `Found ${orphans.length} orphan${orphans.length !== 1 ? 's' : ''}:`;
+    container.appendChild(header);
+
+    orphans.forEach(o => {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:.6rem;padding:.3rem .5rem;background:#1a1a0a;border:1px solid #3a3010;border-radius:3px;margin-bottom:.3rem;flex-wrap:wrap';
+      row.innerHTML = `
+        <span style="color:#ff9060;font-family:'Courier New',monospace">"${o.name}"</span>
+        <span style="color:#5a7aaa;font-size:.68rem">→ ${o.pcid}</span>
+        <span style="color:#5a7aaa;font-size:.68rem">${o.correctName ? `(correct name: "${o.correctName}")` : '(PCID no longer exists)'}</span>
+        <button class="admin-btn admin-btn-red" style="margin-left:auto" data-orphan="${o.name}">🗑 Delete</button>
+      `;
+      container.appendChild(row);
+    });
+
+    const deleteAllBtn = document.createElement('button');
+    deleteAllBtn.className = 'admin-btn admin-btn-red';
+    deleteAllBtn.style.marginTop = '.5rem';
+    deleteAllBtn.textContent = `🗑 Delete All ${orphans.length} Orphans`;
+    deleteAllBtn.onclick = async () => {
+      await Promise.all(orphans.map(o => remove(ref(db, `hp_names/${o.name}`))));
+      orphans.forEach(o => { delete adminNames[o.name]; });
+      adminMsg(`Deleted ${orphans.length} orphan name${orphans.length !== 1 ? 's' : ''}.`);
+      container.innerHTML = '<div style="color:#80ff9a;font-size:.75rem">✓ All orphans removed.</div>';
+    };
+    container.appendChild(deleteAllBtn);
+
+    // Wire individual delete buttons
+    container.querySelectorAll('[data-orphan]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const name = btn.dataset.orphan;
+        await remove(ref(db, `hp_names/${name}`));
+        delete adminNames[name];
+        adminMsg(`Deleted orphan: "${name}"`);
+        btn.closest('div').remove();
+      });
+    });
+  });
 }
 
 </script>
