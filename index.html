@@ -385,7 +385,9 @@ body::before{content:'';position:fixed;inset:0;background:
     <span class="game-info-pill" id="top-deck">Deck: <span id="deck-count">—</span></span>
     <div style="margin-left:auto;display:flex;gap:.4rem">
       <button class="btn btn-dark" id="discard-btn" style="padding:.2rem .5rem;font-size:.62rem">🗂 Discard</button>
+      <button class="btn btn-dark" id="log-btn" style="padding:.2rem .5rem;font-size:.62rem">📜 Log</button>
       <button class="btn btn-dark" id="rules-btn" style="padding:.2rem .5rem;font-size:.62rem">Rules</button>
+      <button class="btn btn-dark" id="encyclopedia-btn" style="padding:.2rem .5rem;font-size:.62rem">📖 Cards</button>
       <button class="btn btn-dark" id="menu-btn" style="padding:.2rem .5rem;font-size:.62rem">Menu</button>
     </div>
   </div>
@@ -544,7 +546,43 @@ body::before{content:'';position:fixed;inset:0;background:
   <div id="mod-banner-cards" class="modifier-banner-cards"></div>
 </div>
 
-<!-- Challenge Flash (full-screen overlay for resolved challenge) -->
+<!-- Encyclopedia Modal -->
+<div id="encyclopedia-modal" class="modal-overlay hidden" style="z-index:600">
+  <div class="modal" style="max-width:780px;max-height:85vh;display:flex;flex-direction:column">
+    <h2 style="flex:0 0 auto">📖 Card Encyclopedia</h2>
+    <div style="flex:0 0 auto;display:flex;flex-wrap:wrap;gap:.35rem;margin-bottom:.6rem;padding-bottom:.5rem;border-bottom:1px solid var(--border)" id="enc-tabs"></div>
+    <div id="enc-cards" class="modal-cards" style="flex:1;overflow-y:auto"></div>
+    <div class="modal-btns" style="flex:0 0 auto">
+      <button class="btn btn-dark" id="encyclopedia-close-btn">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Log Modal -->
+<div id="log-modal" class="modal-overlay hidden" style="z-index:600">
+  <div class="modal" style="max-width:520px;max-height:80vh;display:flex;flex-direction:column">
+    <h2 style="flex:0 0 auto">📜 Game Log</h2>
+    <div id="log-modal-entries" style="flex:1;overflow-y:auto;font-size:.72rem;font-family:'IM Fell English',serif;line-height:1.6"></div>
+    <div class="modal-btns" style="flex:0 0 auto">
+      <button class="btn btn-dark" id="log-modal-close-btn">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Menu Overlay -->
+<div id="menu-overlay" class="modal-overlay hidden" style="z-index:600">
+  <div class="modal" style="max-width:360px;text-align:center">
+    <h2>Menu</h2>
+    <div id="menu-room-info" style="font-family:'Cinzel',serif;font-size:.75rem;color:var(--text2);margin-bottom:1rem"></div>
+    <div style="display:flex;flex-direction:column;gap:.6rem">
+      <button class="btn btn-gold btn-full" id="menu-resume-btn">▶ Resume Game</button>
+      <button class="btn btn-dark btn-full" id="menu-lobby-btn">🏠 Return to Lobby</button>
+    </div>
+  </div>
+</div>
+
+<!-- Challenge Modal -->
+
 <div id="challenge-flash" class="challenge-flash hidden">
   <div>
     <div class="challenge-text">CHALLENGE!</div>
@@ -957,28 +995,75 @@ function loadRooms() {
   if (roomsListener) off(ref(db,'hp_rooms'), 'value', roomsListener);
   roomsListener = onValue(ref(db,'hp_rooms'), snap => {
     const rooms = snap.val() || {};
-    const available = Object.entries(rooms).filter(([code, r]) => {
+
+    const waitingRooms = Object.entries(rooms).filter(([code, r]) => {
       if (r.status !== 'waiting') return false;
       const players = Object.keys(r.players || {});
-      // Show if player is already in it OR it's open
       return players.includes(MY_PCID) || players.length < CONFIG.MAX_PLAYERS;
     });
-    if (!available.length) {
+
+    // Games already started that this player is in (can rejoin)
+    const myActiveGames = Object.entries(rooms).filter(([code, r]) => {
+      if (r.status !== 'playing') return false;
+      return Object.keys(r.players || {}).includes(MY_PCID);
+    });
+
+    if (!waitingRooms.length && !myActiveGames.length) {
       container.innerHTML = '<div style="font-size:.78rem;color:var(--dim);text-align:center;padding:.5rem">No open rooms found.</div>';
       return;
     }
-    container.innerHTML = '<div class="room-list">' + available.map(([code,r]) => {
-      const pcount = Object.keys(r.players||{}).length;
-      const inRoom = Object.keys(r.players||{}).includes(MY_PCID);
-      const displayName = r.roomName ? `<span style="color:var(--text)">${r.roomName}</span> <span style="color:var(--dim);font-size:.68rem">(${code})</span>` : `<span class="room-code">${code}</span>`;
-      return `<div class="room-item${inRoom?' selected':''}" data-code="${code}">
-        <span>${displayName}</span>
-        <span class="room-players">${pcount}/6${inRoom?' (you)':''}</span>
-        <button class="btn btn-dark" style="padding:.2rem .5rem;font-size:.65rem">Join</button>
-      </div>`;
-    }).join('') + '</div>';
+
+    let html = '<div class="room-list">';
+
+    if (myActiveGames.length) {
+      html += `<div style="font-family:'Cinzel',serif;font-size:.6rem;color:var(--gold2);letter-spacing:.1em;text-transform:uppercase;padding:.25rem 0;margin-bottom:.2rem">↩ Rejoin Your Game</div>`;
+      myActiveGames.forEach(([code, r]) => {
+        const pcount = Object.keys(r.players||{}).length;
+        const displayName = r.roomName ? `<span style="color:var(--text)">${r.roomName}</span> <span style="color:var(--dim);font-size:.68rem">(${code})</span>` : `<span class="room-code">${code}</span>`;
+        html += `<div class="room-item selected" data-code="${code}" data-rejoin="1">
+          <span>${displayName}</span>
+          <span class="room-players" style="color:#90ff90">In Progress · ${pcount}p</span>
+          <button class="btn btn-gold" style="padding:.2rem .5rem;font-size:.65rem">Rejoin</button>
+        </div>`;
+      });
+    }
+
+    if (waitingRooms.length) {
+      if (myActiveGames.length) {
+        html += `<div style="font-family:'Cinzel',serif;font-size:.6rem;color:var(--dim);letter-spacing:.1em;text-transform:uppercase;padding:.25rem 0;margin:.4rem 0 .2rem">Open Rooms</div>`;
+      }
+      waitingRooms.forEach(([code, r]) => {
+        const pcount = Object.keys(r.players||{}).length;
+        const inRoom = Object.keys(r.players||{}).includes(MY_PCID);
+        const displayName = r.roomName ? `<span style="color:var(--text)">${r.roomName}</span> <span style="color:var(--dim);font-size:.68rem">(${code})</span>` : `<span class="room-code">${code}</span>`;
+        html += `<div class="room-item${inRoom?' selected':''}" data-code="${code}">
+          <span>${displayName}</span>
+          <span class="room-players">${pcount}/6${inRoom?' (you)':''}</span>
+          <button class="btn btn-dark" style="padding:.2rem .5rem;font-size:.65rem">Join</button>
+        </div>`;
+      });
+    }
+
+    html += '</div>';
+    container.innerHTML = html;
+
     container.querySelectorAll('.room-item').forEach(el => {
-      el.addEventListener('click', () => joinRoom(el.dataset.code));
+      el.addEventListener('click', async () => {
+        if (el.dataset.rejoin) {
+          // Rejoin a running game
+          const code = el.dataset.code;
+          const snap = await get(ref(db, `hp_rooms/${code}`));
+          if (!snap.exists()) { setMsg('lobby-msg','Room no longer exists.'); return; }
+          const room = snap.val();
+          myRoom = code;
+          myRoomName = room.roomName || '';
+          isHost = room.host === MY_PCID;
+          startLocalGame(room);
+          listenRoomForGame();
+        } else {
+          joinRoom(el.dataset.code);
+        }
+      });
     });
   });
 }
@@ -3322,11 +3407,100 @@ document.getElementById('discard-pile').addEventListener('click', openDiscardMod
 document.getElementById('discard-close-btn').addEventListener('click', () => document.getElementById('discard-modal').classList.add('hidden'));
 document.getElementById('rules-btn').addEventListener('click', () => document.getElementById('rules-modal').classList.remove('hidden'));
 document.getElementById('rules-close-btn').addEventListener('click', () => document.getElementById('rules-modal').classList.add('hidden'));
-document.getElementById('menu-btn').addEventListener('click', () => {
-  if (confirm('Return to lobby? You will leave the game.')) {
-    if (roomListener) off(ref(db,`hp_rooms/${myRoom}`),'value',roomListener);
-    myRoom=''; enterLobby();
+
+// ── Log Modal ──
+document.getElementById('log-btn').addEventListener('click', () => {
+  const entries = localGS?.gameLog || [];
+  const el = document.getElementById('log-modal-entries');
+  el.innerHTML = [...entries].reverse().map(e =>
+    `<div style="padding:.2rem 0;border-bottom:1px solid rgba(100,70,20,.15);color:var(--text2)">${e}</div>`
+  ).join('') || '<div style="color:var(--dim);padding:.5rem">No log entries yet.</div>';
+  document.getElementById('log-modal').classList.remove('hidden');
+  el.scrollTop = 0;
+});
+document.getElementById('log-modal-close-btn').addEventListener('click', () =>
+  document.getElementById('log-modal').classList.add('hidden'));
+
+// ── Encyclopedia ──
+const ENC_CATEGORIES = [
+  { key: 'heroes',       label: '⚔ Heroes',        groups: true },
+  { key: 'partyLeaders', label: '👑 Party Leaders', groups: false },
+  { key: 'monsters',     label: '🐉 Monsters',      groups: false },
+  { key: 'items',        label: '🎒 Items',          groups: false },
+  { key: 'cursedItems',  label: '💀 Cursed Items',   groups: false },
+  { key: 'magic',        label: '✨ Magic',           groups: false },
+  { key: 'modifiers',    label: '🎲 Modifiers',      groups: false },
+  { key: 'challenges',   label: '🤺 Challenges',     groups: false },
+];
+let encActiveCat = 'heroes';
+
+function renderEncyclopedia() {
+  // Tabs
+  const tabsEl = document.getElementById('enc-tabs');
+  tabsEl.innerHTML = '';
+  ENC_CATEGORIES.forEach(cat => {
+    const btn = document.createElement('button');
+    btn.className = `btn ${cat.key === encActiveCat ? 'btn-gold' : 'btn-dark'}`;
+    btn.style.cssText = 'padding:.2rem .55rem;font-size:.62rem';
+    btn.textContent = cat.label;
+    btn.onclick = () => { encActiveCat = cat.key; renderEncyclopedia(); };
+    tabsEl.appendChild(btn);
+  });
+
+  // Cards
+  const cardsEl = document.getElementById('enc-cards');
+  cardsEl.innerHTML = '';
+  const cat = ENC_CATEGORIES.find(c => c.key === encActiveCat);
+  const allCards = CARDS[encActiveCat] || [];
+
+  if (cat.key === 'heroes') {
+    // Group by class
+    const classes = ['Bard','Fighter','Guardian','Ranger','Thief','Wizard'];
+    classes.forEach(cls => {
+      const group = allCards.filter(c => c.type === `Hero: ${cls}`);
+      if (!group.length) return;
+      const header = document.createElement('div');
+      header.style.cssText = `width:100%;font-family:'Cinzel',serif;font-size:.65rem;color:var(--gold2);
+        letter-spacing:.12em;text-transform:uppercase;padding:.3rem 0 .2rem;
+        border-bottom:1px solid var(--border);margin-bottom:.3rem`;
+      header.textContent = `— ${cls} —`;
+      cardsEl.appendChild(header);
+      group.forEach(card => {
+        const el = makeCardEl(card, { sm: true });
+        el.style.cursor = 'pointer';
+        el.addEventListener('click', () => showCardInfoOverlay(card));
+        cardsEl.appendChild(el);
+      });
+    });
+  } else {
+    allCards.forEach(card => {
+      const el = makeCardEl(card, { sm: true });
+      el.style.cursor = 'pointer';
+      el.addEventListener('click', () => showCardInfoOverlay(card));
+      cardsEl.appendChild(el);
+    });
   }
+}
+
+document.getElementById('encyclopedia-btn').addEventListener('click', () => {
+  renderEncyclopedia();
+  document.getElementById('encyclopedia-modal').classList.remove('hidden');
+});
+document.getElementById('encyclopedia-close-btn').addEventListener('click', () =>
+  document.getElementById('encyclopedia-modal').classList.add('hidden'));
+
+// ── Menu Overlay ──
+document.getElementById('menu-btn').addEventListener('click', () => {
+  const roomDisplay = myRoomName ? `${myRoomName} (${myRoom})` : myRoom;
+  document.getElementById('menu-room-info').textContent = `Room: ${roomDisplay}`;
+  document.getElementById('menu-overlay').classList.remove('hidden');
+});
+document.getElementById('menu-resume-btn').addEventListener('click', () =>
+  document.getElementById('menu-overlay').classList.add('hidden'));
+document.getElementById('menu-lobby-btn').addEventListener('click', () => {
+  document.getElementById('menu-overlay').classList.add('hidden');
+  // Don't disconnect Firebase listener — player can come back
+  enterLobby();
 });
 document.getElementById('log-toggle').addEventListener('click', () => {
   const log = document.getElementById('game-log');
