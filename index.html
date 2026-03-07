@@ -263,6 +263,41 @@ body::before{content:'';position:fixed;inset:0;background:
 .divider-label::before,.divider-label::after{content:'';position:absolute;top:50%;width:30%;border-top:1px solid rgba(100,70,20,.3)}
 .divider-label::before{left:0}.divider-label::after{right:0}
 
+/* ── ADMIN PANEL ── */
+#admin-screen{position:fixed;inset:0;background:#0a0a12;color:#e0e8ff;font-family:'Courier New',monospace;font-size:.82rem;display:flex;flex-direction:column;overflow:hidden;z-index:9999}
+#admin-screen.hidden{display:none}
+.admin-topbar{background:#111824;border-bottom:2px solid #2a4a8a;padding:.6rem 1rem;display:flex;align-items:center;gap:1rem;flex-shrink:0}
+.admin-topbar h1{font-size:1rem;color:#7ab0ff;letter-spacing:.15em;font-family:'Courier New',monospace;margin:0}
+.admin-topbar .admin-badge{background:#1a2a4a;border:1px solid #2a4a8a;color:#7ab0ff;padding:.15rem .5rem;border-radius:3px;font-size:.65rem;letter-spacing:.1em}
+.admin-tabs{display:flex;gap:0;border-bottom:1px solid #2a4a8a;flex-shrink:0;background:#0e1520}
+.admin-tab{padding:.45rem 1.1rem;font-family:'Courier New',monospace;font-size:.75rem;cursor:pointer;border:none;background:none;color:#5a7aaa;border-bottom:2px solid transparent;transition:all .15s}
+.admin-tab:hover{color:#aac4ff;background:rgba(42,74,138,.2)}
+.admin-tab.active{color:#aac4ff;border-bottom-color:#4a7aff;background:rgba(42,74,138,.15)}
+.admin-body{flex:1;overflow-y:auto;padding:1rem}
+.admin-section{margin-bottom:1.5rem}
+.admin-section h2{font-size:.78rem;color:#5a7aaa;letter-spacing:.2em;text-transform:uppercase;margin-bottom:.6rem;padding-bottom:.3rem;border-bottom:1px solid #1e2e4a}
+.admin-table{width:100%;border-collapse:collapse}
+.admin-table th{text-align:left;padding:.3rem .5rem;font-size:.65rem;color:#4a6a9a;letter-spacing:.1em;text-transform:uppercase;border-bottom:1px solid #1e2e4a}
+.admin-table td{padding:.35rem .5rem;border-bottom:1px solid #111824;vertical-align:middle}
+.admin-table tr:hover td{background:rgba(42,74,138,.1)}
+.admin-inp{background:#0e1520;border:1px solid #2a4a5a;color:#e0e8ff;padding:.25rem .5rem;border-radius:3px;font-family:'Courier New',monospace;font-size:.75rem;width:100%}
+.admin-inp:focus{outline:none;border-color:#4a7aff}
+.admin-btn{padding:.2rem .6rem;border-radius:3px;font-family:'Courier New',monospace;font-size:.7rem;cursor:pointer;border:1px solid;transition:all .15s}
+.admin-btn-blue{background:#1a2a4a;border-color:#2a4a8a;color:#7ab0ff}.admin-btn-blue:hover{background:#2a3a5a}
+.admin-btn-red{background:#2a1010;border-color:#6a2020;color:#ff8080}.admin-btn-red:hover{background:#3a1818}
+.admin-btn-green{background:#0e2a1a;border-color:#1a5a2a;color:#80ff9a}.admin-btn-green:hover{background:#1a3a22}
+.admin-btn-yellow{background:#2a2010;border-color:#5a4a10;color:#ffd060}.admin-btn-yellow:hover{background:#3a3010}
+.admin-msg{margin:.5rem 0;padding:.4rem .7rem;border-radius:3px;font-size:.72rem}
+.admin-msg.ok{background:#0e2a1a;border:1px solid #1a5a2a;color:#80ff9a}
+.admin-msg.err{background:#2a1010;border:1px solid #6a2020;color:#ff8080}
+.admin-tag{display:inline-block;padding:.1rem .35rem;border-radius:2px;font-size:.62rem;letter-spacing:.06em}
+.admin-tag-waiting{background:#1a3a1a;color:#80ff80;border:1px solid #2a6a2a}
+.admin-tag-playing{background:#2a2a0e;color:#ffd060;border:1px solid #5a5a10}
+.admin-tag-other{background:#1a1a2a;color:#8080ff;border:1px solid #2a2a5a}
+.admin-pcid{font-size:.65rem;color:#5a7aaa;font-family:'Courier New',monospace}
+.admin-search{background:#0e1520;border:1px solid #2a4a5a;color:#e0e8ff;padding:.3rem .6rem;border-radius:3px;font-family:'Courier New',monospace;font-size:.75rem;width:100%;margin-bottom:.7rem}
+.admin-search:focus{outline:none;border-color:#4a7aff}
+
 /* ── RESPONSIVE ── */
 @media(max-width:600px){
   :root{--card-w:72px;--card-h:101px;--card-w-lg:96px;--card-h-lg:135px}
@@ -274,7 +309,40 @@ body::before{content:'';position:fixed;inset:0;background:
 <body>
 
 <!-- ════════════════════════════════════════
-     SCREEN 1: NAME ENTRY
+     ADMIN PANEL (visible only via ?admin in URL)
+     ════════════════════════════════════════ -->
+<div id="admin-screen" class="hidden">
+  <div class="admin-topbar">
+    <h1>⚙ HERO PARTY — ADMIN</h1>
+    <span class="admin-badge">CHUMMY GAMES</span>
+    <button class="admin-btn admin-btn-blue" id="admin-refresh-btn" style="margin-left:auto">↺ Refresh</button>
+  </div>
+  <div class="admin-tabs">
+    <button class="admin-tab active" data-tab="rooms">Rooms</button>
+    <button class="admin-tab" data-tab="players">Players</button>
+  </div>
+  <div id="admin-msg-global" style="padding:.4rem 1rem;display:none"></div>
+
+  <!-- ROOMS TAB -->
+  <div class="admin-body" id="admin-tab-rooms">
+    <div class="admin-section">
+      <h2>All Rooms</h2>
+      <input class="admin-search" id="admin-rooms-search" placeholder="Filter rooms by code or name...">
+      <div id="admin-rooms-list">Loading...</div>
+    </div>
+  </div>
+
+  <!-- PLAYERS TAB -->
+  <div class="admin-body hidden" id="admin-tab-players">
+    <div class="admin-section">
+      <h2>All Players</h2>
+      <input class="admin-search" id="admin-players-search" placeholder="Filter by name or PCID...">
+      <div id="admin-players-list">Loading...</div>
+    </div>
+  </div>
+</div>
+
+
      ════════════════════════════════════════ -->
 <div id="name-screen" class="screen">
   <div class="game-title">Hero Party</div>
@@ -3520,6 +3588,348 @@ gameScreenObserver.observe(document.getElementById('game-screen'), {attributes:t
 const style = document.createElement('style');
 style.textContent = `@keyframes fadeInUp{from{opacity:0;transform:translateX(-50%) translateY(10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}`;
 document.head.appendChild(style);
+
+// ════════════════════════════════════════════════════════════════
+// ADMIN PANEL
+// Activated by: ?admin anywhere in the URL
+// ════════════════════════════════════════════════════════════════
+if (new URLSearchParams(window.location.search).has('admin')) {
+  // Hide normal game UI completely
+  document.querySelectorAll('.screen').forEach(s => { s.classList.add('hidden'); s.style.display='none'; });
+  document.getElementById('game-log').style.display = 'none';
+  document.getElementById('admin-screen').classList.remove('hidden');
+
+  // Tab switching
+  let activeAdminTab = 'rooms';
+  document.querySelectorAll('.admin-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      activeAdminTab = tab.dataset.tab;
+      document.querySelectorAll('.admin-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === activeAdminTab));
+      document.getElementById('admin-tab-rooms').classList.toggle('hidden', activeAdminTab !== 'rooms');
+      document.getElementById('admin-tab-players').classList.toggle('hidden', activeAdminTab !== 'players');
+      adminLoad();
+    });
+  });
+
+  // Search filter
+  document.getElementById('admin-rooms-search').addEventListener('input', renderAdminRooms);
+  document.getElementById('admin-players-search').addEventListener('input', renderAdminPlayers);
+  document.getElementById('admin-refresh-btn').addEventListener('click', adminLoad);
+
+  // ── State ──
+  let adminRooms = {};    // { code: roomObj }
+  let adminPlayers = {};  // { pcid: playerObj }
+  let adminNames = {};    // { name: { pcid } }
+
+  function adminMsg(msg, isErr = false) {
+    const el = document.getElementById('admin-msg-global');
+    el.className = 'admin-msg ' + (isErr ? 'err' : 'ok');
+    el.textContent = msg;
+    el.style.display = '';
+    clearTimeout(el._t);
+    el._t = setTimeout(() => { el.style.display = 'none'; }, 4000);
+  }
+
+  async function adminLoad() {
+    const [roomsSnap, playersSnap, namesSnap] = await Promise.all([
+      get(ref(db, 'hp_rooms')),
+      get(ref(db, 'hp_players')),
+      get(ref(db, 'hp_names')),
+    ]);
+    adminRooms = roomsSnap.val() || {};
+    adminPlayers = playersSnap.val() || {};
+    adminNames = namesSnap.val() || {};
+    renderAdminRooms();
+    renderAdminPlayers();
+  }
+
+  // ════════════════════════
+  // ROOMS TAB
+  // ════════════════════════
+  function renderAdminRooms() {
+    const filter = document.getElementById('admin-rooms-search').value.toLowerCase();
+    const container = document.getElementById('admin-rooms-list');
+    const entries = Object.entries(adminRooms).filter(([code, r]) => {
+      if (!filter) return true;
+      return code.toLowerCase().includes(filter) || (r.roomName||'').toLowerCase().includes(filter);
+    });
+
+    if (!entries.length) { container.innerHTML = '<div style="color:#5a7aaa;padding:.5rem">No rooms found.</div>'; return; }
+
+    container.innerHTML = '';
+    entries.forEach(([code, room]) => {
+      const playerCount = Object.keys(room.players || {}).length;
+      const statusTag = room.status === 'waiting'
+        ? `<span class="admin-tag admin-tag-waiting">WAITING</span>`
+        : room.status === 'playing'
+          ? `<span class="admin-tag admin-tag-playing">PLAYING</span>`
+          : `<span class="admin-tag admin-tag-other">${room.status}</span>`;
+      const playerNames = Object.values(room.players || {}).map(p => p.name).join(', ') || '—';
+
+      const card = document.createElement('div');
+      card.style.cssText = 'background:#0e1520;border:1px solid #1e2e4a;border-radius:4px;padding:.65rem .8rem;margin-bottom:.55rem';
+      card.innerHTML = `
+        <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.4rem;flex-wrap:wrap">
+          <span style="font-size:.85rem;color:#aac4ff;letter-spacing:.1em;font-weight:700">${code}</span>
+          ${room.roomName ? `<span style="color:#e0e8ff">${room.roomName}</span>` : ''}
+          ${statusTag}
+          <span style="color:#5a7aaa;font-size:.68rem">${playerCount} player${playerCount!==1?'s':''}</span>
+          <button class="admin-btn admin-btn-red" data-action="delete-room" data-code="${code}" style="margin-left:auto">🗑 Delete Room</button>
+        </div>
+        <div style="color:#5a7aaa;font-size:.68rem;margin-bottom:.5rem">Players: <span style="color:#c0d0f0">${playerNames}</span></div>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
+          <input class="admin-inp" id="rename-room-${code}" placeholder="New room name…" style="max-width:220px">
+          <button class="admin-btn admin-btn-yellow" data-action="rename-room" data-code="${code}">✏ Rename</button>
+        </div>
+      `;
+      container.appendChild(card);
+    });
+
+    // Wire actions
+    container.querySelectorAll('[data-action]').forEach(btn => {
+      btn.addEventListener('click', () => adminRoomAction(btn.dataset.action, btn.dataset.code));
+    });
+  }
+
+  async function adminRoomAction(action, code) {
+    if (action === 'delete-room') {
+      if (!confirm(`Delete room ${code}? This cannot be undone.`)) return;
+      await remove(ref(db, `hp_rooms/${code}`));
+      delete adminRooms[code];
+      adminMsg(`Room ${code} deleted.`);
+      renderAdminRooms();
+    }
+    else if (action === 'rename-room') {
+      const newName = document.getElementById(`rename-room-${code}`).value.trim();
+      if (!newName) { adminMsg('Enter a new name first.', true); return; }
+      await update(ref(db, `hp_rooms/${code}`), { roomName: newName });
+      adminRooms[code].roomName = newName;
+      adminMsg(`Room ${code} renamed to "${newName}".`);
+      renderAdminRooms();
+    }
+  }
+
+  // ════════════════════════
+  // PLAYERS TAB
+  // ════════════════════════
+  function renderAdminPlayers() {
+    const filter = document.getElementById('admin-players-search').value.toLowerCase();
+    const container = document.getElementById('admin-players-list');
+    const entries = Object.entries(adminPlayers).filter(([pcid, p]) => {
+      if (!filter) return true;
+      return pcid.toLowerCase().includes(filter) || (p.name||'').toLowerCase().includes(filter);
+    });
+
+    if (!entries.length) { container.innerHTML = '<div style="color:#5a7aaa;padding:.5rem">No players found.</div>'; return; }
+
+    container.innerHTML = '';
+    entries.forEach(([pcid, player]) => {
+      // Find rooms this player is in
+      const theirRooms = Object.entries(adminRooms)
+        .filter(([,r]) => r.players?.[pcid])
+        .map(([code, r]) => `<span style="color:#7ab0ff">${code}</span>${r.roomName?' ('+r.roomName+')':''}`)
+        .join(', ') || '<span style="color:#5a7aaa">none</span>';
+
+      const card = document.createElement('div');
+      card.style.cssText = 'background:#0e1520;border:1px solid #1e2e4a;border-radius:4px;padding:.65rem .8rem;margin-bottom:.55rem';
+      card.innerHTML = `
+        <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.5rem;flex-wrap:wrap">
+          <span style="font-size:.88rem;color:#aac4ff;font-weight:700">${player.name || '—'}</span>
+          <span class="admin-pcid">${pcid}</span>
+          <span style="color:#5a7aaa;font-size:.65rem">Last seen: ${player.lastSeen ? new Date(player.lastSeen).toLocaleString() : 'unknown'}</span>
+        </div>
+        <div style="color:#5a7aaa;font-size:.68rem;margin-bottom:.6rem">In rooms: ${theirRooms}</div>
+
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.45rem">
+          <span style="color:#5a7aaa;font-size:.7rem;white-space:nowrap">Rename:</span>
+          <input class="admin-inp" id="rename-player-${pcid}" placeholder="New display name…" style="max-width:200px">
+          <button class="admin-btn admin-btn-yellow" data-action="rename-player" data-pcid="${pcid}">✏ Rename</button>
+        </div>
+
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
+          <span style="color:#5a7aaa;font-size:.7rem;white-space:nowrap">New PCID:</span>
+          <input class="admin-inp" id="newpcid-${pcid}" placeholder="12-char uppercase code…" maxlength="12" style="max-width:180px;text-transform:uppercase">
+          <button class="admin-btn admin-btn-blue" data-action="gen-pcid" data-pcid="${pcid}">↺ Generate</button>
+          <button class="admin-btn admin-btn-red" data-action="change-pcid" data-pcid="${pcid}">⚡ Apply PCID</button>
+        </div>
+      `;
+      container.appendChild(card);
+    });
+
+    // Wire actions
+    container.querySelectorAll('[data-action]').forEach(btn => {
+      btn.addEventListener('click', () => adminPlayerAction(btn.dataset.action, btn.dataset.pcid));
+    });
+  }
+
+  function generateAdminCode(len) {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let s = '';
+    for (let i = 0; i < len; i++) s += chars[Math.floor(Math.random() * chars.length)];
+    return s;
+  }
+
+  async function adminPlayerAction(action, oldPCID) {
+    const player = adminPlayers[oldPCID];
+    if (!player) { adminMsg('Player not found.', true); return; }
+
+    if (action === 'gen-pcid') {
+      document.getElementById(`newpcid-${oldPCID}`).value = generateAdminCode(12);
+    }
+
+    else if (action === 'rename-player') {
+      const newName = document.getElementById(`rename-player-${oldPCID}`).value.trim();
+      if (!newName) { adminMsg('Enter a new name first.', true); return; }
+      const oldName = player.name;
+
+      const writes = [];
+      // Update hp_players
+      writes.push(update(ref(db, `hp_players/${oldPCID}`), { name: newName }));
+      // Update hp_names: remove old, add new
+      writes.push(remove(ref(db, `hp_names/${oldName}`)));
+      writes.push(set(ref(db, `hp_names/${newName}`), { pcid: oldPCID, lastSeen: player.lastSeen || Date.now() }));
+      // Update player record in every room they're in
+      Object.entries(adminRooms).forEach(([code, room]) => {
+        if (room.players?.[oldPCID]) {
+          writes.push(update(ref(db, `hp_rooms/${code}/players/${oldPCID}`), { name: newName }));
+          // Also update name inside gameState.players if game is running
+          if (room.gameState?.players?.[oldPCID]) {
+            writes.push(update(ref(db, `hp_rooms/${code}/gameState/players/${oldPCID}`), { name: newName }));
+          }
+        }
+      });
+
+      await Promise.all(writes);
+
+      // Update local admin state
+      adminPlayers[oldPCID].name = newName;
+      delete adminNames[oldName];
+      adminNames[newName] = { pcid: oldPCID };
+      Object.entries(adminRooms).forEach(([, room]) => {
+        if (room.players?.[oldPCID]) room.players[oldPCID].name = newName;
+        if (room.gameState?.players?.[oldPCID]) room.gameState.players[oldPCID].name = newName;
+      });
+
+      adminMsg(`Renamed "${oldName}" → "${newName}" across all records.`);
+      renderAdminPlayers();
+    }
+
+    else if (action === 'change-pcid') {
+      const newPCID = document.getElementById(`newpcid-${oldPCID}`).value.trim().toUpperCase();
+      if (newPCID.length !== 12) { adminMsg('PCID must be exactly 12 characters.', true); return; }
+      if (newPCID === oldPCID) { adminMsg('New PCID is same as current.', true); return; }
+      if (adminPlayers[newPCID]) { adminMsg('That PCID is already in use.', true); return; }
+      if (!confirm(`Change PCID for "${player.name}"?\n${oldPCID} → ${newPCID}\n\nThis will update every room they appear in.`)) return;
+
+      const name = player.name;
+      const writes = [];
+
+      // hp_players: create new, delete old
+      writes.push(set(ref(db, `hp_players/${newPCID}`), { ...player, pcid: newPCID }));
+      writes.push(remove(ref(db, `hp_players/${oldPCID}`)));
+
+      // hp_names: point to new PCID
+      if (name) {
+        writes.push(update(ref(db, `hp_names/${name}`), { pcid: newPCID }));
+      }
+
+      // hp_migrations: record the change
+      writes.push(set(ref(db, `hp_migrations/${newPCID}`), { oldPCID, name, ts: Date.now(), adminChange: true }));
+
+      // Every room this player is in: move their slot + update gameState
+      Object.entries(adminRooms).forEach(([code, room]) => {
+        if (!room.players?.[oldPCID]) return;
+
+        const oldPlayerSlot = room.players[oldPCID];
+        // Room players: add new slot, remove old
+        writes.push(set(ref(db, `hp_rooms/${code}/players/${newPCID}`), { ...oldPlayerSlot, pcid: newPCID }));
+        writes.push(remove(ref(db, `hp_rooms/${code}/players/${oldPCID}`)));
+
+        // Update host if needed
+        if (room.host === oldPCID) {
+          writes.push(update(ref(db, `hp_rooms/${code}`), { host: newPCID }));
+        }
+
+        // Update gameState if game is in progress
+        if (room.gameState) {
+          const gs = room.gameState;
+
+          // gameState.players
+          if (gs.players?.[oldPCID]) {
+            const oldGSPlayer = { ...gs.players[oldPCID], pcid: newPCID };
+            writes.push(set(ref(db, `hp_rooms/${code}/gameState/players/${newPCID}`), oldGSPlayer));
+            writes.push(remove(ref(db, `hp_rooms/${code}/gameState/players/${oldPCID}`)));
+          }
+
+          // currentTurn
+          if (gs.currentTurn === oldPCID) {
+            writes.push(update(ref(db, `hp_rooms/${code}/gameState`), { currentTurn: newPCID }));
+          }
+
+          // turnOrder array
+          if (Array.isArray(gs.turnOrder) && gs.turnOrder.includes(oldPCID)) {
+            const newOrder = gs.turnOrder.map(id => id === oldPCID ? newPCID : id);
+            writes.push(update(ref(db, `hp_rooms/${code}/gameState`), { turnOrder: newOrder }));
+          }
+
+          // pendingCardPlay
+          const pcp = gs.pendingCardPlay;
+          if (pcp) {
+            const pcpUpdates = {};
+            if (pcp.playedByPCID === oldPCID) pcpUpdates.playedByPCID = newPCID;
+            if (pcp.challengerPCID === oldPCID) pcpUpdates.challengerPCID = newPCID;
+            if (pcp.passedPlayers?.includes(oldPCID)) {
+              pcpUpdates.passedPlayers = pcp.passedPlayers.map(id => id === oldPCID ? newPCID : id);
+            }
+            if (Object.keys(pcpUpdates).length) {
+              writes.push(update(ref(db, `hp_rooms/${code}/gameState/pendingCardPlay`), pcpUpdates));
+            }
+          }
+
+          // pendingRoll
+          const pr = gs.pendingRoll;
+          if (pr) {
+            const prUpdates = {};
+            if (pr.rollerId === oldPCID) prUpdates.rollerId = newPCID;
+            if (pr.passedPlayers?.includes(oldPCID)) {
+              prUpdates.passedPlayers = pr.passedPlayers.map(id => id === oldPCID ? newPCID : id);
+            }
+            if (Object.keys(prUpdates).length) {
+              writes.push(update(ref(db, `hp_rooms/${code}/gameState/pendingRoll`), prUpdates));
+            }
+          }
+        }
+      });
+
+      await Promise.all(writes);
+
+      // Update local admin state
+      adminPlayers[newPCID] = { ...player, pcid: newPCID };
+      delete adminPlayers[oldPCID];
+      if (name) adminNames[name] = { pcid: newPCID };
+
+      Object.entries(adminRooms).forEach(([code, room]) => {
+        if (!room.players?.[oldPCID]) return;
+        room.players[newPCID] = { ...room.players[oldPCID], pcid: newPCID };
+        delete room.players[oldPCID];
+        if (room.host === oldPCID) room.host = newPCID;
+        if (room.gameState?.players?.[oldPCID]) {
+          room.gameState.players[newPCID] = { ...room.gameState.players[oldPCID], pcid: newPCID };
+          delete room.gameState.players[oldPCID];
+        }
+        if (room.gameState?.currentTurn === oldPCID) room.gameState.currentTurn = newPCID;
+      });
+
+      adminMsg(`PCID changed: ${oldPCID} → ${newPCID}. All records updated.`);
+      renderAdminPlayers();
+      renderAdminRooms();
+    }
+  }
+
+  // ── Initial load ──
+  adminLoad();
+}
+
 </script>
 </body>
 </html>
